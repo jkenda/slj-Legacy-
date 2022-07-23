@@ -19,21 +19,33 @@ class Tree:
 		self.r = r
 
 	def print(self, globina: int = 0):
+		print(globina * "  ", end="")
+
 		if type(self.data) is float:
-			print(globina * "  " + str(self.data))
+			print(str(self.data))
+		elif type(self.data) is str:
+			print(f"{self.data} ({consts[self.data]})")
 		else:
-			print(globina * "  " + operatorji_r[self.data])
+			print(operatorji_r[self.data])
 			self.l.print(globina + 1)
 			self.r.print(globina + 1)
 
 	def ovrednoti(self) -> float:
 		if type(self.data) == float:
 			return self.data
+		if type(self.data) is str:
+			return consts[self.data]
 		else:
 			return self.data(self.l.ovrednoti(), self.r.ovrednoti())
 
 operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
 ignore = { '+', '-', '*', '/', '^', ')' }
+
+consts = {
+	"e":   2.7182818284590452354,
+	"phi": 1.61803398874989485,
+	"pi":  3.14159265358979323846,
+}
 
 def main():
 	izraz = "\0"
@@ -43,7 +55,7 @@ def main():
 			tree = izgradi(izraz)
 			tree.print()
 			print("\n=", tree.ovrednoti())
-		except KeyboardInterrupt:
+		except (KeyboardInterrupt, EOFError):
 			print()
 			exit()
 		except Exception as e:
@@ -52,6 +64,7 @@ def main():
 
 def izgradi(izraz: str) -> Tree:
 	predprocesiran_izraz = predprocesiran(izraz)
+	print(predprocesiran_izraz)
 	return aditivni(predprocesiran_izraz)
 
 def predprocesiran(izraz: str) -> str:
@@ -65,8 +78,13 @@ def predprocesiran(izraz: str) -> str:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
 		if prev.isnumeric() and not curr.isnumeric() and not curr in ignore:
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-		elif prev == ')' and curr == '(':
+		elif curr == '(' and prev.isalnum():
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+		elif prev == ')':
+			if not curr.isnumeric() and not curr in ignore:
+				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+			if curr.isnumeric():
+				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		i += 1
 
 	return predproc_str
@@ -113,16 +131,21 @@ def potenčni(izraz: str) -> Tree:
 	if na == -1:
 		# ni znaka '^'
 		return osnovni(izraz)
-	else:
-		return Tree(pow, potenčni(izraz[:na]), potenčni(izraz[na+1:]))
+	return Tree(pow, potenčni(izraz[:na]), potenčni(izraz[na+1:]))
 
-def osnovni(izraz: str) -> Tree:
+def osnovni(izraz: str) -> float:
 	if len(izraz) == 0:
 		return Tree(0.0)
-	if izraz[0] == '(' and izraz[-1] == ')':
+	if izraz[0] == '(':
 		return aditivni(izraz[1:-1])
 
-	return Tree(float(izraz))
+	try:
+		return Tree(float(izraz))
+	except Exception:
+		if izraz in consts:
+			return Tree(izraz)
+		else:
+			raise Exception(f"'{izraz}' not defined.")
 
 def poišči(izraz: str, niz: str) -> int:
 	oklepajev = 0
@@ -140,7 +163,7 @@ def poišči(izraz: str, niz: str) -> int:
 		i -= 1
 
 	if oklepajev != 0:
-		raise Exception("Oklepaji se je ujemajo.")
+		raise Exception("Oklepaji se ne ujemajo.")
 
 	return -1
 

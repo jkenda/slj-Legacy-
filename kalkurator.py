@@ -5,6 +5,12 @@ from operator import add, sub, mul, truediv
 operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
 ignore = { '+', '-', '*', '/', '^', ')' }
 
+consts = {
+	"e":   2.7182818284590452354,
+	"phi": 1.61803398874989485,
+	"pi":  3.14159265358979323846,
+}
+
 
 def main():
 	izraz = "\0"
@@ -12,7 +18,7 @@ def main():
 		try:
 			izraz = input("> ")
 			print("=", ovrednoti(izraz))
-		except KeyboardInterrupt:
+		except (KeyboardInterrupt, EOFError):
 			print()
 			exit()
 		except Exception as e:
@@ -35,6 +41,13 @@ def predprocesiran(izraz: str) -> str:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
 		if prev.isnumeric() and not curr.isnumeric() and not curr in ignore:
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+		elif curr == '(' and prev.isalnum():
+			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+		elif prev == ')':
+			if not curr.isnumeric() and not curr in ignore:
+				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+			if curr.isnumeric():
+				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		i += 1
 
 	return predproc_str
@@ -85,13 +98,18 @@ def potenčni(izraz: str) -> float:
 		return potenčni(izraz[:na]) ** potenčni(izraz[na+1:])
 
 def osnovni(izraz: str) -> float:
-	# print(izraz)
 	if len(izraz) == 0:
 		return 0
 	if izraz[0] == '(':
 		return aditivni(izraz[1:-1])
 
-	return float(izraz)
+	try:
+		return float(izraz)
+	except Exception:
+		try:
+			return consts[izraz]
+		except:
+			raise Exception(f"'{izraz}' not defined.")
 
 def poišči(izraz: str, char: str) -> int:
 	oklepajev = 0
@@ -109,7 +127,7 @@ def poišči(izraz: str, char: str) -> int:
 		i -= 1
 
 	if oklepajev != 0:
-		raise Exception("Oklepaji se je ujemajo.")
+		raise Exception("Oklepaji se ne ujemajo.")
 
 	return -1
 
