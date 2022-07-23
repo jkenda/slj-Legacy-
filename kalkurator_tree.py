@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 
+from curses.ascii import isalpha
 from operator import add, sub, mul, truediv
 import re
-from IzraznoDrevo import IzraznoDrevo
+from IzraznoDrevo import *
 
-operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
-operatorji_r = { fun: op for op, fun in operatorji.items() }
+operatorji = { '+': Add, '-': Sub, '*': Mul, '/': Div, '^': Pow }
 ignore = { '+', '-', '*', '/', '^', ')' }
 var_regex = r"[a-zA-Z_]\w*"
 
@@ -55,13 +55,13 @@ def priredi(izraz: str) -> float:
 	tree.print(konstante | spremenljivke)
 	program = tree.compile(konstante | spremenljivke)
 	print(program)
-	IzraznoDrevo.zaženi(program)
+	Node.zaženi(program)
 	vrednost = tree.ovrednoti(konstante | spremenljivke)
 	if spremenljivka:
 		spremenljivke[spremenljivka] = vrednost
 	return vrednost
 
-def izgradi(izraz: str) -> IzraznoDrevo:
+def izgradi(izraz: str) -> Node:
 	predprocesiran_izraz = predprocesiran(izraz)
 	print(predprocesiran_izraz)
 	return aditivni(predprocesiran_izraz)
@@ -75,9 +75,13 @@ def predprocesiran(izraz: str) -> str:
 	dolzina = len(predproc_str)
 	while i < dolzina:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
-		if prev.isnumeric() and re.fullmatch(var_regex, curr):
-			# 2a, 2(...)
-			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+		if prev.isnumeric():
+			if curr.isalpha():
+				# 2a
+				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+			if curr == '(':
+				# 2(...)
+				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		elif curr == '(' and prev.isalpha():
 			# a(...)
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
@@ -92,7 +96,7 @@ def predprocesiran(izraz: str) -> str:
 
 	return predproc_str
 
-def aditivni(izraz: str) -> IzraznoDrevo:
+def aditivni(izraz: str) -> Add:
 	plus  = poišči(izraz, '+')
 	minus = poišči(izraz, '-')
 
@@ -101,7 +105,7 @@ def aditivni(izraz: str) -> IzraznoDrevo:
 		return multiplikativni(izraz)
 	elif plus > minus:
 		# '+' ima prednost
-		return IzraznoDrevo(add, aditivni(izraz[:plus]), multiplikativni(izraz[plus+1:]))
+		return Add(aditivni(izraz[:plus]), multiplikativni(izraz[plus+1:]))
 	elif minus > plus:
 		# '-' ima prednost 
 		if minus == 0:
@@ -109,10 +113,10 @@ def aditivni(izraz: str) -> IzraznoDrevo:
 			return multiplikativni(izraz)
 		elif izraz[minus-1] in operatorji:
 			# negacija
-			return IzraznoDrevo(operatorji[izraz[minus-1]], aditivni(izraz[:minus-1]), multiplikativni(izraz[minus:]))
+			return operatorji[izraz[minus-1]](aditivni(izraz[:minus-1]), multiplikativni(izraz[minus:]))
 		else:
 			# odštevanje
-			return IzraznoDrevo(sub, aditivni(izraz[:minus]), multiplikativni(izraz[minus+1:]))
+			return Sub(aditivni(izraz[:minus]), multiplikativni(izraz[minus+1:]))
 
 def multiplikativni(izraz: str) -> float:
 	krat    = poišči(izraz, '*')
@@ -123,30 +127,32 @@ def multiplikativni(izraz: str) -> float:
 		return potenčni(izraz)
 	elif krat > deljeno:
 		# '*' ima prednost
-		return IzraznoDrevo(mul, multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
+		return Mul(multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
 	elif deljeno > krat:
 		# '/' ima prednost
-		return IzraznoDrevo(truediv, multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
+		return Div(multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
 
-def potenčni(izraz: str) -> IzraznoDrevo:
+def potenčni(izraz: str) -> Pow:
 	na = poišči(izraz, '^')
 
 	if na == -1:
 		# ni znaka '^'
 		return osnovni(izraz)
-	return IzraznoDrevo(pow, potenčni(izraz[:na]), potenčni(izraz[na+1:]))
+	return Pow(potenčni(izraz[:na]), potenčni(izraz[na+1:]))
 
 def osnovni(izraz: str) -> float:
 	if len(izraz) == 0:
-		return IzraznoDrevo(0.0)
+		return Num(0.0)
 	if izraz[0] == '(':
 		return aditivni(izraz[1:-1])
 
 	try:
-		return IzraznoDrevo(float(izraz))
+		return Num(float(izraz))
 	except Exception:
-		if izraz in konstante | spremenljivke:
-			return IzraznoDrevo(izraz)
+		if izraz in konstante:
+			return Num(konstante[izraz])
+		elif izraz in spremenljivke:
+			return Var(izraz)
 		else:
 			raise Exception(f"'{izraz}' not defined.")
 

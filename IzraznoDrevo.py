@@ -1,57 +1,33 @@
-from typing import TypeVar
+from abc import abstractmethod
+from typing import TypeVar, overload
 from collections.abc import Callable
 from operator import add, sub, mul, truediv
 
-TIzraznoDrevo = TypeVar("TIzraznoDrevo", bound="IzraznoDrevo")
+TNode = TypeVar("TNode", bound="Node")
 
 operatorji_r = { add: '+', sub: '-', mul: '*', truediv: '/', pow: '^' }
 ukazi_r = { add: "ADD", sub: "SUB", mul: "MUL", truediv: "DIV", pow: "POW" }
 ukazi = { ukaz: op for op, ukaz in ukazi_r.items() }
 
-class IzraznoDrevo:
-    data: Callable[[float, float], float] | float | str
-    l: TIzraznoDrevo | None
-    r: TIzraznoDrevo | None
+class Node:
+    l: TNode
+    r: TNode
 
-    def __init__(self, data, l = None, r = None) -> None:
-        self.data = data
+    def __init__(self, l: TNode, r: TNode) -> None:
         self.l = l
         self.r = r
 
+    @abstractmethod
     def print(self, spremenljivke: dict, globina: int = 0):
-        print(globina * "  ", end="")
+        pass
 
-        if type(self.data) is float:
-            print(str(self.data))
-        elif type(self.data) is str:
-            print(f"{self.data} ({spremenljivke[self.data]})")
-        else:
-            print(operatorji_r[self.data])
-            self.l.print(spremenljivke, globina + 1)
-            self.r.print(spremenljivke, globina + 1)
-
+    @abstractmethod
     def ovrednoti(self, spremenljivke: dict) -> float:
-        if type(self.data) == float:
-            return self.data
-        if type(self.data) is str:
-            return spremenljivke[self.data]
-        else:
-            return self.data(
-                self.l.ovrednoti(spremenljivke), 
-                self.r.ovrednoti(spremenljivke)
-            )
+        pass
 
-    def compile(self, spremenljivke: dict):
-        if type(self.data) == float:
-            return f"PUSH {self.data}"
-        if type(self.data) is str:
-            return f"PUSH {spremenljivke[self.data]}"
-        else:
-            return (
-                f"{self.l.compile(spremenljivke)}\n"
-                f"{self.r.compile(spremenljivke)}\n"
-                f"{ukazi_r[self.data]}"
-            )
+    @abstractmethod
+    def compile(self, spremenljivke: dict) -> str:
+        pass
 
     def zaženi(program: str) -> float:
         stack = []
@@ -73,3 +49,110 @@ class IzraznoDrevo:
             print(line + ":", stack)
 
         print("=", stack[-1])
+
+class Num(Node):
+    data: float
+
+    def __init__(self, data: float) -> None:
+        self.data = data
+
+    def print(self, _: dict, globina: int = 0):
+        print(globina * "  " + str(self.data))
+
+    def ovrednoti(self, _: dict):
+        return self.data
+
+    def compile(self, _: dict):
+        return f"PUSH {self.data}"
+
+class Var(Node):
+    data: str
+
+    def print(self, spremenljivke: dict, globina: int = 0):
+        print(globina * "  " + f"{self.data} ({spremenljivke[self.data]})")
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return spremenljivke[self.data]
+
+    def compile(self, spremenljivke: dict) -> str:
+        return f"PUSH {spremenljivke[self.data]}"
+
+class Pow(Node):
+    def print(self, spremenljivke: dict, globina: int = 0):
+        print(globina * "  " + '^')
+        self.l.print(spremenljivke, globina + 1)
+        self.r.print(spremenljivke, globina + 1)
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return self.l.ovrednoti(spremenljivke) ** self.r.ovrednoti(spremenljivke)
+
+    def compile(self, spremenljivke: dict) -> str:
+        return (
+            f"{self.l.compile(spremenljivke)}\n"
+            f"{self.r.compile(spremenljivke)}\n"
+            f"POW"
+        )
+
+class Mul(Node):
+    def print(self, spremenljivke: dict, globina: int = 0):
+        print(globina * "  " + '*')
+        self.l.print(spremenljivke, globina + 1)
+        self.r.print(spremenljivke, globina + 1)
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return self.l.ovrednoti(spremenljivke) * self.r.ovrednoti(spremenljivke)
+
+    def compile(self, spremenljivke: dict) -> str:
+        return (
+            f"{self.l.compile(spremenljivke)}\n"
+            f"{self.r.compile(spremenljivke)}\n"
+            f"MUL"
+        )
+
+class Div(Node):
+    def print(self, spremenljivke: dict, globina: int = 0):
+        print(globina * "  " + '/')
+        self.l.print(spremenljivke, globina + 1)
+        self.r.print(spremenljivke, globina + 1)
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return self.l.ovrednoti(spremenljivke) / self.r.ovrednoti(spremenljivke)
+
+    def compile(self, spremenljivke: dict) -> str:
+        return (
+            f"{self.l.compile(spremenljivke)}\n"
+            f"{self.r.compile(spremenljivke)}\n"
+            f"DIV"
+        )
+
+class Add(Node):
+    def print(self, spremenljivke: dict, globina: int = 0):
+        print(globina * "  " + '+')
+        self.l.print(spremenljivke, globina + 1)
+        self.r.print(spremenljivke, globina + 1)
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return self.l.ovrednoti(spremenljivke) + self.r.ovrednoti(spremenljivke)
+
+    def compile(self, spremenljivke: dict) -> str:
+        return (
+            f"{self.l.compile(spremenljivke)}\n"
+            f"{self.r.compile(spremenljivke)}\n"
+            f"ADD"
+        )
+
+class Sub(Node):
+    def print(self, spremenljivke: dict, globina: int = 0):
+        print(globina * "  " + '+')
+        self.l.print(spremenljivke, globina + 1)
+        self.r.print(spremenljivke, globina + 1)
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return self.l.ovrednoti(spremenljivke) - self.r.ovrednoti(spremenljivke)
+
+    def compile(self, spremenljivke: dict) -> str:
+        return (
+            f"{self.l.compile(spremenljivke)}\n"
+            f"{self.r.compile(spremenljivke)}\n"
+            f"SUB"
+        )
