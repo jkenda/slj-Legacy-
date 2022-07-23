@@ -3,13 +3,17 @@
 from typing import TypeVar
 from collections.abc import Callable
 from operator import add, sub, mul, truediv
+import re
 
-operatorji_r = { add: '+', sub: '-', mul: '*', truediv: '/', pow: '^' }
+operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
+operatorji_r = { fun: op for op, fun in operatorji }
+ignore = { '+', '-', '*', '/', '^', ')' }
+var_regex = "[a-zA-Z_]\w*"
 
 TTree = TypeVar("TTree", bound="Tree")
 
 class Tree:
-	data: Callable[[float, float], float] | float
+	data: Callable[[float, float], float] | float | str
 	l: TTree | None
 	r: TTree | None
 
@@ -24,7 +28,7 @@ class Tree:
 		if type(self.data) is float:
 			print(str(self.data))
 		elif type(self.data) is str:
-			print(f"{self.data} ({consts[self.data]})")
+			print(f"{self.data} ({(konstante | spremenljivke)[self.data]})")
 		else:
 			print(operatorji_r[self.data])
 			self.l.print(globina + 1)
@@ -34,33 +38,55 @@ class Tree:
 		if type(self.data) == float:
 			return self.data
 		if type(self.data) is str:
-			return consts[self.data]
+			return (konstante | spremenljivke)[self.data]
 		else:
 			return self.data(self.l.ovrednoti(), self.r.ovrednoti())
 
-operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
-ignore = { '+', '-', '*', '/', '^', ')' }
-
-consts = {
+konstante = {
 	"e":   2.7182818284590452354,
 	"phi": 1.61803398874989485,
 	"pi":  3.14159265358979323846,
 }
 
+spremenljivke = dict()
+
+
 def main():
 	izraz = "\0"
 	while izraz != "":
 		try:
-			izraz = input("> ")
-			tree = izgradi(izraz)
-			tree.print()
-			print("\n=", tree.ovrednoti())
+			vrednost = priredi(input("> "))
+			print("\n=", vrednost)
 		except (KeyboardInterrupt, EOFError):
 			print()
 			exit()
 		except Exception as e:
 			print(e)
 
+
+def priredi(izraz: str) -> float:
+	st_enacajev = izraz.count('=')
+	spremenljivka = None
+
+	if st_enacajev > 1:
+		raise Exception("Preveč enačajev.")
+	elif st_enacajev == 1:
+		razdeljen = list(map(lambda x: x.strip(), izraz.split('=')))
+		if re.fullmatch(var_regex, razdeljen[0]):
+			if razdeljen[0] not in konstante:
+				spremenljivka = razdeljen[0]
+				izraz = razdeljen[1]
+			else:
+				raise Exception(f"'{razdeljen[0]}' je konstanta.")
+		else:
+			raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
+
+	tree = izgradi(izraz)
+	tree.print()
+	vrednost = tree.ovrednoti()
+	if spremenljivka:
+		spremenljivke[spremenljivka] = vrednost
+	return vrednost
 
 def izgradi(izraz: str) -> Tree:
 	predprocesiran_izraz = predprocesiran(izraz)
@@ -77,13 +103,17 @@ def predprocesiran(izraz: str) -> str:
 	while i < dolzina:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
 		if prev.isnumeric() and not curr.isnumeric() and not curr in ignore:
+			# 2a, 2(...)
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-		elif curr == '(' and prev.isalnum():
+		elif curr == '(' and prev.isalpha():
+			# a(...)
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		elif prev == ')':
 			if not curr.isnumeric() and not curr in ignore:
+				# (...)a
 				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 			if curr.isnumeric():
+				# (...)2
 				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		i += 1
 
@@ -142,7 +172,7 @@ def osnovni(izraz: str) -> float:
 	try:
 		return Tree(float(izraz))
 	except Exception:
-		if izraz in consts:
+		if izraz in konstante | spremenljivke:
 			return Tree(izraz)
 		else:
 			raise Exception(f"'{izraz}' not defined.")

@@ -1,15 +1,20 @@
 #!/usr/bin/python3
 
 from operator import add, sub, mul, truediv
+import re
 
 operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
 ignore = { '+', '-', '*', '/', '^', ')' }
 
-consts = {
+var_regex = "[a-zA-Z_]\w*"
+
+konstante = {
 	"e":   2.7182818284590452354,
 	"phi": 1.61803398874989485,
 	"pi":  3.14159265358979323846,
 }
+
+spremenljivke = dict()
 
 
 def main():
@@ -17,13 +22,36 @@ def main():
 	while izraz != "":
 		try:
 			izraz = input("> ")
-			print("=", ovrednoti(izraz))
+			vrednost = priredi(izraz)
+			print("=", vrednost)
 		except (KeyboardInterrupt, EOFError):
 			print()
 			exit()
 		except Exception as e:
 			print(e)
 
+
+def priredi(izraz: str) -> float:
+	st_enacajev = izraz.count('=')
+	spremenljivka = None
+
+	if st_enacajev > 1:
+		raise Exception("Preveč enačajev.")
+	elif st_enacajev == 1:
+		razdeljen = list(map(lambda x: x.strip(), izraz.split('=')))
+		if re.fullmatch(var_regex, razdeljen[0]):
+			if razdeljen[0] not in konstante:
+				spremenljivka = razdeljen[0]
+				izraz = razdeljen[1]
+			else:
+				raise Exception(f"'{razdeljen[0]}' je konstanta.")
+		else:
+			raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
+
+	vrednost = ovrednoti(izraz)
+	if spremenljivka:
+		spremenljivke[spremenljivka] = vrednost
+	return vrednost
 
 def ovrednoti(izraz: str) -> float:
 	predprocesiran_izraz = predprocesiran(izraz)
@@ -40,13 +68,17 @@ def predprocesiran(izraz: str) -> str:
 	while i < dolzina:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
 		if prev.isnumeric() and not curr.isnumeric() and not curr in ignore:
+			# 2a, 2(...)
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-		elif curr == '(' and prev.isalnum():
+		elif curr == '(' and prev.isalpha():
+			# a(...)
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		elif prev == ')':
 			if not curr.isnumeric() and not curr in ignore:
+				# (...)a
 				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 			if curr.isnumeric():
+				# (...)2
 				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		i += 1
 
@@ -107,7 +139,7 @@ def osnovni(izraz: str) -> float:
 		return float(izraz)
 	except Exception:
 		try:
-			return consts[izraz]
+			return (konstante | spremenljivke)[izraz]
 		except:
 			raise Exception(f"'{izraz}' not defined.")
 
