@@ -1,51 +1,21 @@
 #!/usr/bin/python3
 
-from typing import TypeVar
-from collections.abc import Callable
 from operator import add, sub, mul, truediv
 import re
+from IzraznoDrevo import IzraznoDrevo
 
 operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
-operatorji_r = { fun: op for op, fun in operatorji }
+operatorji_r = { fun: op for op, fun in operatorji.items() }
 ignore = { '+', '-', '*', '/', '^', ')' }
-var_regex = "[a-zA-Z_]\w*"
-
-TTree = TypeVar("TTree", bound="Tree")
-
-class Tree:
-	data: Callable[[float, float], float] | float | str
-	l: TTree | None
-	r: TTree | None
-
-	def __init__(self, data, l = None, r = None) -> None:
-		self.data = data
-		self.l = l
-		self.r = r
-
-	def print(self, globina: int = 0):
-		print(globina * "  ", end="")
-
-		if type(self.data) is float:
-			print(str(self.data))
-		elif type(self.data) is str:
-			print(f"{self.data} ({(konstante | spremenljivke)[self.data]})")
-		else:
-			print(operatorji_r[self.data])
-			self.l.print(globina + 1)
-			self.r.print(globina + 1)
-
-	def ovrednoti(self) -> float:
-		if type(self.data) == float:
-			return self.data
-		if type(self.data) is str:
-			return (konstante | spremenljivke)[self.data]
-		else:
-			return self.data(self.l.ovrednoti(), self.r.ovrednoti())
+var_regex = r"[a-zA-Z_]\w*"
 
 konstante = {
 	"e":   2.7182818284590452354,
-	"phi": 1.61803398874989485,
 	"pi":  3.14159265358979323846,
+	"phi": 1.61803398874989485,
+	"psi": 1.46557123187676802665,
+	"mu":  1.84775906502257351225,
+	"K":   0.11494204485329620070,
 }
 
 spremenljivke = dict()
@@ -82,13 +52,16 @@ def priredi(izraz: str) -> float:
 			raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
 
 	tree = izgradi(izraz)
-	tree.print()
-	vrednost = tree.ovrednoti()
+	tree.print(konstante | spremenljivke)
+	program = tree.compile(konstante | spremenljivke)
+	print(program)
+	IzraznoDrevo.zaženi(program)
+	vrednost = tree.ovrednoti(konstante | spremenljivke)
 	if spremenljivka:
 		spremenljivke[spremenljivka] = vrednost
 	return vrednost
 
-def izgradi(izraz: str) -> Tree:
+def izgradi(izraz: str) -> IzraznoDrevo:
 	predprocesiran_izraz = predprocesiran(izraz)
 	print(predprocesiran_izraz)
 	return aditivni(predprocesiran_izraz)
@@ -102,7 +75,7 @@ def predprocesiran(izraz: str) -> str:
 	dolzina = len(predproc_str)
 	while i < dolzina:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
-		if prev.isnumeric() and not curr.isnumeric() and not curr in ignore:
+		if prev.isnumeric() and re.fullmatch(var_regex, curr):
 			# 2a, 2(...)
 			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
 		elif curr == '(' and prev.isalpha():
@@ -119,7 +92,7 @@ def predprocesiran(izraz: str) -> str:
 
 	return predproc_str
 
-def aditivni(izraz: str) -> Tree:
+def aditivni(izraz: str) -> IzraznoDrevo:
 	plus  = poišči(izraz, '+')
 	minus = poišči(izraz, '-')
 
@@ -128,7 +101,7 @@ def aditivni(izraz: str) -> Tree:
 		return multiplikativni(izraz)
 	elif plus > minus:
 		# '+' ima prednost
-		return Tree(add, aditivni(izraz[:plus]), multiplikativni(izraz[plus+1:]))
+		return IzraznoDrevo(add, aditivni(izraz[:plus]), multiplikativni(izraz[plus+1:]))
 	elif minus > plus:
 		# '-' ima prednost 
 		if minus == 0:
@@ -136,10 +109,10 @@ def aditivni(izraz: str) -> Tree:
 			return multiplikativni(izraz)
 		elif izraz[minus-1] in operatorji:
 			# negacija
-			return Tree(operatorji[izraz[minus-1]], aditivni(izraz[:minus-1]), multiplikativni(izraz[minus:]))
+			return IzraznoDrevo(operatorji[izraz[minus-1]], aditivni(izraz[:minus-1]), multiplikativni(izraz[minus:]))
 		else:
 			# odštevanje
-			return Tree(sub, aditivni(izraz[:minus]), multiplikativni(izraz[minus+1:]))
+			return IzraznoDrevo(sub, aditivni(izraz[:minus]), multiplikativni(izraz[minus+1:]))
 
 def multiplikativni(izraz: str) -> float:
 	krat    = poišči(izraz, '*')
@@ -150,30 +123,30 @@ def multiplikativni(izraz: str) -> float:
 		return potenčni(izraz)
 	elif krat > deljeno:
 		# '*' ima prednost
-		return Tree(mul, multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
+		return IzraznoDrevo(mul, multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
 	elif deljeno > krat:
 		# '/' ima prednost
-		return Tree(truediv, multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
+		return IzraznoDrevo(truediv, multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
 
-def potenčni(izraz: str) -> Tree:
+def potenčni(izraz: str) -> IzraznoDrevo:
 	na = poišči(izraz, '^')
 
 	if na == -1:
 		# ni znaka '^'
 		return osnovni(izraz)
-	return Tree(pow, potenčni(izraz[:na]), potenčni(izraz[na+1:]))
+	return IzraznoDrevo(pow, potenčni(izraz[:na]), potenčni(izraz[na+1:]))
 
 def osnovni(izraz: str) -> float:
 	if len(izraz) == 0:
-		return Tree(0.0)
+		return IzraznoDrevo(0.0)
 	if izraz[0] == '(':
 		return aditivni(izraz[1:-1])
 
 	try:
-		return Tree(float(izraz))
+		return IzraznoDrevo(float(izraz))
 	except Exception:
 		if izraz in konstante | spremenljivke:
-			return Tree(izraz)
+			return IzraznoDrevo(izraz)
 		else:
 			raise Exception(f"'{izraz}' not defined.")
 
