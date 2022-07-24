@@ -19,7 +19,7 @@ def main(argc: int, argv: list[str]) -> int:
                 i += 1
                 continue
 
-            print(line + ":", end=" ")
+            # print(line + ":", end=" ")
             besede = line.split(' ')
             ukaz = besede[0]
 
@@ -41,12 +41,12 @@ def main(argc: int, argv: list[str]) -> int:
                 stevilka = int(besede[1][1:])
                 stack[stevilka] = stack[-1]
             elif ukaz == "PRINT":
-                pass#print(str(stack[-1]))
+                print(str(stack[-1]))
             else:
                 stack[-2] = ukazi[ukaz](stack[-2], stack[-1])
                 stack.pop()
 
-            print(stack)
+            # print(stack)
 
 if __name__ == "__main__":
     exit(main(len(sys.argv), sys.argv))

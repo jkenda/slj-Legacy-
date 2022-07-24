@@ -35,7 +35,6 @@ def main(argc: int, argv: list[str]) -> int:
 	ukazi = prog.compile(len(naslovi_spr))
 	prog.print()
 	print(naslovi_spr)
-	print(ukazi)
 
 	with open(argv[2], "w") as file:
 		file.write(ukazi)

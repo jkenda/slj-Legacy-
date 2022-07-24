@@ -229,10 +229,9 @@ class Scope(Vozlišče):
         return self.zaporedje.ovrednoti(spremenljivke)
 
     def compile(self, st_spr: int) -> str:
-        return (
-            f"{self.zaporedje.compile()}"
-            "POP\n" * st_spr
-        )
+        ukazi = self.zaporedje.compile()
+        ukazi += "POP\n" * st_spr
+        return ukazi
 
 class FunkcijskiKlic(Vozlišče):
     ime: str
