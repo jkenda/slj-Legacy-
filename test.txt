@@ -1,0 +1,7 @@
+x = 6 / (1 + 1) ((5 - 3) + (0.5 + 0.5))
+x = x + 1
+y = x + 2
+print(x)
+print(x+3)
+print(y)
+print("rezultati:")

@@ -1,158 +1,288 @@
-from abc import abstractmethod
-from typing import TypeVar, overload
-from collections.abc import Callable
-from operator import add, sub, mul, truediv
+from abc import ABC, abstractmethod
+from typing import TypeVar
 
-TNode = TypeVar("TNode", bound="Node")
+TVozlišče = TypeVar("TVozlišče", bound="Vozlišče")
+TIzraz = TypeVar("TIzraz", bound="Izraz")
 
-operatorji_r = { add: '+', sub: '-', mul: '*', truediv: '/', pow: '^' }
-ukazi_r = { add: "ADD", sub: "SUB", mul: "MUL", truediv: "DIV", pow: "POW" }
-ukazi = { ukaz: op for op, ukaz in ukazi_r.items() }
+class Vozlišče(ABC):
+    scope: TVozlišče = None
 
-class Node:
-    l: TNode
-    r: TNode
+    @abstractmethod
+    def print(self, globina: int = 0):
+        pass
 
-    def __init__(self, l: TNode, r: TNode) -> None:
+    @abstractmethod
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        pass
+
+    @abstractmethod
+    def compile(self) -> str:
+        pass
+
+class Izraz(Vozlišče):
+    l: TIzraz
+    r: TIzraz
+
+    def __init__(self, l: TIzraz, r: TIzraz) -> None:
         self.l = l
         self.r = r
 
-    @abstractmethod
-    def print(self, spremenljivke: dict, globina: int = 0):
-        pass
+class Prazno(Vozlišče):
+    def print(self, globina: int = 0) -> None:
+        print(globina * "  " + "()")
 
-    @abstractmethod
-    def ovrednoti(self, spremenljivke: dict) -> float:
-        pass
+    def ovrednoti(self, _: dict) -> float:
+        return 0.0
 
-    @abstractmethod
-    def compile(self, spremenljivke: dict) -> str:
-        pass
+    def compile(self) -> str:
+        return ""
 
-    def zaženi(program: str) -> float:
-        stack = []
+class Niz(Vozlišče):
+    niz: str
 
-        lines = program.split('\n')
+    def __init__(self, niz: float) -> None:
+        self.niz = niz
 
-        for line in lines:
-            besede = line.split(' ')
-            ukaz = besede[0]
+    def print(self, globina: int = 0) -> None:
+        print(globina * "  " + f'"{self.niz}"')
 
-            if ukaz == "PUSH":
-                stack.append(float(besede[1]))
-            elif ukaz == "POP":
-                stack.pop()
-            else:
-                stack[-2] = ukazi[ukaz](stack[-2], stack[-1])
-                stack.pop()
+    def ovrednoti(self, _: dict) -> float:
+        return self.niz
 
-            print(line + ":", stack)
+    def compile(self) -> str:
+        return f'PUSH "{self.niz}"\n'
 
-        print("=", stack[-1])
+class Število(Vozlišče):
+    število: float
 
-class Num(Node):
-    data: float
+    def __init__(self, število: float) -> None:
+        self.število = število
 
-    def __init__(self, data: float) -> None:
-        self.data = data
+    def print(self, globina: int = 0) -> None:
+        print(globina * "  " + str(self.število))
 
-    def print(self, _: dict, globina: int = 0):
-        print(globina * "  " + str(self.data))
+    def ovrednoti(self, _: dict) -> float:
+        return self.število
 
-    def ovrednoti(self, _: dict):
-        return self.data
+    def compile(self) -> str:
+        return f"PUSH #{self.število}\n"
 
-    def compile(self, _: dict):
-        return f"PUSH {self.data}"
+class Spremenljivka(Vozlišče):
+    ime: str
+    poz_na_kopici: int
 
-class Var(Node):
-    data: str
+    def __init__(self, ime: float, pozicija: int = None) -> None:
+        self.ime = ime
+        self.poz_na_kopici = pozicija
 
-    def print(self, spremenljivke: dict, globina: int = 0):
-        print(globina * "  " + f"{self.data} ({spremenljivke[self.data]})")
+    def print(self, globina: int = 0):
+        print(globina * "  " + f"{self.ime} @{self.poz_na_kopici}")
 
-    def ovrednoti(self, spremenljivke: dict) -> float:
-        return spremenljivke[self.data]
+    def ovrednoti(self, spremenljivke = dict()) -> float:
+        return 0.0
 
-    def compile(self, spremenljivke: dict) -> str:
-        return f"PUSH {spremenljivke[self.data]}"
+    def compile(self) -> str:
+        return f"PUSH @{self.poz_na_kopici}\n"
 
-class Pow(Node):
-    def print(self, spremenljivke: dict, globina: int = 0):
+class Potenca(Izraz):
+    def print(self, globina: int = 0):
         print(globina * "  " + '^')
-        self.l.print(spremenljivke, globina + 1)
-        self.r.print(spremenljivke, globina + 1)
+        self.l.print(globina + 1)
+        self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke: dict) -> float:
+    def ovrednoti(self, spremenljivke = dict()) -> float:
         return self.l.ovrednoti(spremenljivke) ** self.r.ovrednoti(spremenljivke)
 
-    def compile(self, spremenljivke: dict) -> str:
+    def compile(self) -> str:
         return (
-            f"{self.l.compile(spremenljivke)}\n"
-            f"{self.r.compile(spremenljivke)}\n"
-            f"POW"
+            f"{self.l.compile()}"
+            f"{self.r.compile()}"
+             "POW\n"
         )
 
-class Mul(Node):
-    def print(self, spremenljivke: dict, globina: int = 0):
+class Množenje(Izraz):
+    def print(self, globina: int = 0):
         print(globina * "  " + '*')
-        self.l.print(spremenljivke, globina + 1)
-        self.r.print(spremenljivke, globina + 1)
+        self.l.print(globina + 1)
+        self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke: dict) -> float:
+    def ovrednoti(self, spremenljivke = dict()) -> float:
         return self.l.ovrednoti(spremenljivke) * self.r.ovrednoti(spremenljivke)
 
-    def compile(self, spremenljivke: dict) -> str:
+    def compile(self) -> str:
         return (
-            f"{self.l.compile(spremenljivke)}\n"
-            f"{self.r.compile(spremenljivke)}\n"
-            f"MUL"
+            f"{self.l.compile()}"
+            f"{self.r.compile()}"
+             "MUL\n"
         )
 
-class Div(Node):
-    def print(self, spremenljivke: dict, globina: int = 0):
+class Deljenje(Izraz):
+    def print(self, globina: int = 0):
         print(globina * "  " + '/')
-        self.l.print(spremenljivke, globina + 1)
-        self.r.print(spremenljivke, globina + 1)
+        self.l.print(globina + 1)
+        self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke: dict) -> float:
+    def ovrednoti(self, spremenljivke = dict()) -> float:
         return self.l.ovrednoti(spremenljivke) / self.r.ovrednoti(spremenljivke)
 
-    def compile(self, spremenljivke: dict) -> str:
+    def compile(self) -> str:
         return (
-            f"{self.l.compile(spremenljivke)}\n"
-            f"{self.r.compile(spremenljivke)}\n"
-            f"DIV"
+            f"{self.l.compile()}"
+            f"{self.r.compile()}"
+             "DIV\n"
         )
 
-class Add(Node):
-    def print(self, spremenljivke: dict, globina: int = 0):
+class Seštevanje(Izraz):
+    def print(self, globina: int = 0):
         print(globina * "  " + '+')
-        self.l.print(spremenljivke, globina + 1)
-        self.r.print(spremenljivke, globina + 1)
+        self.l.print(globina + 1)
+        self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke: dict) -> float:
+    def ovrednoti(self, spremenljivke = dict()) -> float:
         return self.l.ovrednoti(spremenljivke) + self.r.ovrednoti(spremenljivke)
 
-    def compile(self, spremenljivke: dict) -> str:
+    def compile(self) -> str:
         return (
-            f"{self.l.compile(spremenljivke)}\n"
-            f"{self.r.compile(spremenljivke)}\n"
-            f"ADD"
+            f"{self.l.compile()}"
+            f"{self.r.compile()}"
+             "ADD\n"
         )
 
-class Sub(Node):
-    def print(self, spremenljivke: dict, globina: int = 0):
+class Odštevanje(Izraz):
+    def print(self, globina: int = 0):
         print(globina * "  " + '+')
-        self.l.print(spremenljivke, globina + 1)
-        self.r.print(spremenljivke, globina + 1)
+        self.l.print(globina + 1)
+        self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke: dict) -> float:
+    def ovrednoti(self, spremenljivke = dict()) -> float:
         return self.l.ovrednoti(spremenljivke) - self.r.ovrednoti(spremenljivke)
 
-    def compile(self, spremenljivke: dict) -> str:
+    def compile(self,) -> str:
         return (
-            f"{self.l.compile(spremenljivke)}\n"
-            f"{self.r.compile(spremenljivke)}\n"
-            f"SUB"
+            f"{self.l.compile()}"
+            f"{self.r.compile()}"
+             "SUB\n"
         )
+
+class Priredba(Vozlišče):
+    spremenljivka: Spremenljivka
+    izraz: Izraz
+    nova_spr: bool
+
+    def __init__(self, spremenljivka: Spremenljivka, izraz: Izraz, nova_spr: bool) -> None:
+        self.spremenljivka = spremenljivka
+        self.izraz = izraz
+        self.nova_spr = nova_spr
+
+    def print(self, globina: int = 0):
+        print(globina * "  " + f"{self.spremenljivka.ime} =")
+        self.izraz.print(globina + 1)
+
+    def ovrednoti(self, spremenljivke = dict()) -> float:
+        spremenljivke[self.spremenljivka.ime] = self.izraz.ovrednoti(spremenljivke)
+        return spremenljivke[self.spremenljivka.ime]
+
+    def compile(self) -> str:
+        stavki = self.izraz.compile()
+
+        if not self.nova_spr:
+            stavki += (
+                f"MOV @{self.spremenljivka.poz_na_kopici}\n"
+                 "POP\n"
+            )
+        return stavki
+
+TZaporedje = TypeVar("TZaporedje", bound="Zaporedje")
+
+class Zaporedje(Izraz):
+    def __init__(self, zaporedje: Izraz, priredba: Priredba) -> None:
+        self.l = zaporedje
+        self.r = priredba
+
+    def print(self, globina: int = 0):
+        self.l.print(globina)
+        print(globina * "  " + ";")
+        self.r.print(globina + 1)
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        self.l.ovrednoti(spremenljivke)
+        return self.r.ovrednoti(spremenljivke)
+
+    def compile(self) -> str:
+        return (
+            f"{self.l.compile()}"
+            f"{self.r.compile()}"
+        )
+
+class Scope(Vozlišče):
+    zaporedje: Zaporedje
+
+    def __init__(self, zaporedje: Zaporedje) -> None:
+        self.zaporedje = zaporedje
+
+    def print(self, globina: int = 0):
+        print(globina * "  " + "{")
+        self.zaporedje.print(globina+1)
+        print(globina * "  " + "}")
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return self.zaporedje.ovrednoti(spremenljivke)
+
+    def compile(self, st_spr: int) -> str:
+        return (
+            f"{self.zaporedje.compile()}"
+            "POP\n" * st_spr
+        )
+
+class FunkcijskiKlic(Vozlišče):
+    ime: str
+    argumenti: list[Izraz]
+    ukazi: Scope
+
+    def __init__(self, ime: str, ukaz: str, argumenti: list[Izraz], ukazi: Vozlišče) -> None:
+        self.ime = ime
+        self.ukaz = ukaz
+        self.argumenti = argumenti
+        self.ukazi = ukazi
+
+    def print(self, globina: int = 0):
+        print(globina * "  " + "{")
+        self.zaporedje.print(globina+1)
+        print(globina * "  " + "}")
+
+    def ovrednoti(self, spremenljivke: dict) -> float:
+        return self.argumenti[0].ovrednoti(spremenljivke)
+
+    def compile(self) -> str:
+        ukazi = ""
+        for argument in self.argumenti:
+            ukazi += argument.compile()
+        ukazi += self.ukaz + '\n'
+        ukazi += "POP\n" * len(self.argumenti)
+
+        return ukazi
+
+class Print(Vozlišče):
+    izrazi: list[Izraz]
+
+    def __init__(self, izrazi: list[Izraz]) -> None:
+        self.izrazi = izrazi
+
+    def print(self, globina: int = 0):
+        print(globina * "  " + "print(")
+        for izraz in self.izrazi[:-1]:
+            izraz.print(globina + 1)
+            print(",")
+        self.izrazi[-1].print(globina + 1)
+        print(globina * "  " + ")")
+
+    def ovrednoti(self, spremenljivke = dict()) -> float:
+        return None
+
+    def compile(self) -> str:
+        ukazi = ""
+        for izraz in self.izrazi:
+            ukazi += izraz.compile()
+            ukazi += "PRINT\n"
+            ukazi += "POP\n"
+        return ukazi

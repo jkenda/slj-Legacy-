@@ -5,7 +5,7 @@ from operator import add, sub, mul, truediv
 import re
 from IzraznoDrevo import *
 
-operatorji = { '+': Add, '-': Sub, '*': Mul, '/': Div, '^': Pow }
+operatorji = { '+': Seštevanje, '-': Odštevanje, '*': Množenje, '/': Deljenje, '^': Potenca }
 ignore = { '+', '-', '*', '/', '^', ')' }
 var_regex = r"[a-zA-Z_]\w*"
 
@@ -55,13 +55,13 @@ def priredi(izraz: str) -> float:
 	tree.print(konstante | spremenljivke)
 	program = tree.compile(konstante | spremenljivke)
 	print(program)
-	Node.zaženi(program)
+	IzraznoDrevo.zaženi(program)
 	vrednost = tree.ovrednoti(konstante | spremenljivke)
 	if spremenljivka:
 		spremenljivke[spremenljivka] = vrednost
 	return vrednost
 
-def izgradi(izraz: str) -> Node:
+def izgradi(izraz: str) -> IzraznoDrevo:
 	predprocesiran_izraz = predprocesiran(izraz)
 	print(predprocesiran_izraz)
 	return aditivni(predprocesiran_izraz)
@@ -96,7 +96,7 @@ def predprocesiran(izraz: str) -> str:
 
 	return predproc_str
 
-def aditivni(izraz: str) -> Add:
+def aditivni(izraz: str) -> Seštevanje:
 	plus  = poišči(izraz, '+')
 	minus = poišči(izraz, '-')
 
@@ -105,7 +105,7 @@ def aditivni(izraz: str) -> Add:
 		return multiplikativni(izraz)
 	elif plus > minus:
 		# '+' ima prednost
-		return Add(aditivni(izraz[:plus]), multiplikativni(izraz[plus+1:]))
+		return Seštevanje(aditivni(izraz[:plus]), multiplikativni(izraz[plus+1:]))
 	elif minus > plus:
 		# '-' ima prednost 
 		if minus == 0:
@@ -116,7 +116,7 @@ def aditivni(izraz: str) -> Add:
 			return operatorji[izraz[minus-1]](aditivni(izraz[:minus-1]), multiplikativni(izraz[minus:]))
 		else:
 			# odštevanje
-			return Sub(aditivni(izraz[:minus]), multiplikativni(izraz[minus+1:]))
+			return Odštevanje(aditivni(izraz[:minus]), multiplikativni(izraz[minus+1:]))
 
 def multiplikativni(izraz: str) -> float:
 	krat    = poišči(izraz, '*')
@@ -127,32 +127,32 @@ def multiplikativni(izraz: str) -> float:
 		return potenčni(izraz)
 	elif krat > deljeno:
 		# '*' ima prednost
-		return Mul(multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
+		return Množenje(multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
 	elif deljeno > krat:
 		# '/' ima prednost
-		return Div(multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
+		return Deljenje(multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
 
-def potenčni(izraz: str) -> Pow:
+def potenčni(izraz: str) -> Potenca:
 	na = poišči(izraz, '^')
 
 	if na == -1:
 		# ni znaka '^'
 		return osnovni(izraz)
-	return Pow(potenčni(izraz[:na]), potenčni(izraz[na+1:]))
+	return Potenca(potenčni(izraz[:na]), potenčni(izraz[na+1:]))
 
 def osnovni(izraz: str) -> float:
 	if len(izraz) == 0:
-		return Num(0.0)
+		return Str(0.0)
 	if izraz[0] == '(':
 		return aditivni(izraz[1:-1])
 
 	try:
-		return Num(float(izraz))
+		return Str(float(izraz))
 	except Exception:
 		if izraz in konstante:
-			return Num(konstante[izraz])
+			return Str(konstante[izraz])
 		elif izraz in spremenljivke:
-			return Var(izraz)
+			return Spremenljivka(izraz)
 		else:
 			raise Exception(f"'{izraz}' not defined.")
 
