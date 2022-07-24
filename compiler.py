@@ -18,44 +18,44 @@ konstante = {
 	"K":   0.11494204485329620070,
 }
 
-naslovi_spr = dict()
-spr_vrednosti = dict()
 
 def main(argc: int, argv: list[str]) -> int:
 	if argc != 3:
 		return 1
 
 	with open(argv[1], "r") as file:
-#		try:
-		prog = scope(file)
-#		except Exception as e:
-#			print(e)
-#			return 2
+		try:
+			korenski_okvir = okvir(file)
+		except Exception as e:
+			print(e)
+			return 2
 
-	ukazi = prog.compile(len(naslovi_spr))
-	prog.print()
-	print(naslovi_spr)
+	ukazi = korenski_okvir.compile()
+	korenski_okvir.print()
 
 	with open(argv[2], "w") as file:
 		file.write(ukazi)
 
-def scope(file: TextIOWrapper) -> Scope:
+def okvir(file: TextIOWrapper) -> Okvir:
 	vrstice = filter(lambda v : v and not v.isspace(), file.readlines())
 	vrstice = map(lambda v : v.strip(), vrstice)
 	vrstice = list(vrstice)
-	return Scope(zaporedje(vrstice))
 
-def zaporedje(vrstice: list[str]) -> Zaporedje:
+	naslovi_spr = dict()
+
+	return Okvir(zaporedje(vrstice, naslovi_spr), len(naslovi_spr))
+
+def zaporedje(vrstice: list[str], naslovi_spr: dict[str, int]) -> Zaporedje:
 	if len(vrstice) == 0:
 		return Prazno()
 	if len(vrstice) == 1:
-		return priredba(vrstice[0])
+		return priredba(vrstice[0], naslovi_spr)
 	if len(vrstice) == 2:
-		return Zaporedje(priredba(vrstice[0]), priredba(vrstice[1]))
+		return Zaporedje(priredba(vrstice[0], naslovi_spr), priredba(vrstice[1], naslovi_spr))
 
-	return Zaporedje(zaporedje(vrstice[:-1]), priredba(vrstice[-1]))
+	return Zaporedje(zaporedje(vrstice[:-1], naslovi_spr), priredba(vrstice[-1], naslovi_spr))
 
-def priredba(izraz: str) -> Priredba:
+def priredba(izraz: str, naslovi_spr: dict[str, int]) -> Priredba:
 	st_enacajev = izraz.count('=')
 
 	if st_enacajev == 1:
@@ -63,7 +63,7 @@ def priredba(izraz: str) -> Priredba:
 		if re.fullmatch(var_regex, razdeljen[0]):
 			if razdeljen[0] not in konstante:
 				ime = razdeljen[0]
-				izrazno_drevo = drevo(razdeljen[1])
+				izrazno_drevo = drevo(razdeljen[1], naslovi_spr)
 
 				pozicija = naslovi_spr.get(ime)
 				if pozicija != None:
@@ -79,63 +79,68 @@ def priredba(izraz: str) -> Priredba:
 	if izraz.startswith("print(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("print(") : -len(")")]
 		argumenti = notranji_izraz.split(",")
-		return Print([ aditivni(arg.strip()) for arg in argumenti ])
+		return Print([ aditivni(arg.strip(), naslovi_spr) for arg in argumenti ])
 	else:
 		raise Exception(f"Neveljaven izraz: '{izraz}'")
 
 
-def drevo(izraz: str) -> Izraz:
-	return aditivni(predprocesiran(izraz))
+def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
+	return aditivni(predprocesiran(izraz), naslovi_spr)
 
-def aditivni(izraz: str) -> Seštevanje:
+def aditivni(izraz: str, naslovi_spr: dict[str, int]) -> Seštevanje:
 	plus  = poišči(izraz, '+')
 	minus = poišči(izraz, '-')
 
 	if plus == -1 and minus == -1:
 		# ni ne '+', ne '-'
-		return multiplikativni(izraz)
+		return multiplikativni(izraz, naslovi_spr)
 	elif plus > minus:
 		# '+' ima prednost
-		return Seštevanje(aditivni(izraz[:plus]), multiplikativni(izraz[plus+1:]))
+		return Seštevanje(aditivni(izraz[:plus], naslovi_spr), 
+						  multiplikativni(izraz[plus+1:], naslovi_spr))
 	elif minus > plus:
 		# '-' ima prednost 
 		if minus == 0:
 			# negacija na začetku izraza
-			return multiplikativni(izraz)
+			return multiplikativni(izraz, naslovi_spr)
 		elif izraz[minus-1] in operatorji:
 			# negacija
-			return operatorji[izraz[minus-1]](aditivni(izraz[:minus-1]), multiplikativni(izraz[minus:]))
+			return operatorji[izraz[minus-1]](
+				aditivni(izraz[:minus-1], naslovi_spr), 
+				multiplikativni(izraz[minus:], naslovi_spr)
+			)
 		else:
 			# odštevanje
-			return Odštevanje(aditivni(izraz[:minus]), multiplikativni(izraz[minus+1:]))
+			return Odštevanje(aditivni(izraz[:minus], naslovi_spr), 
+							  multiplikativni(izraz[minus+1:], naslovi_spr))
 
-def multiplikativni(izraz: str) -> float:
+def multiplikativni(izraz: str, naslovi_spr: dict[str, int]) -> float:
 	krat    = poišči(izraz, '*')
 	deljeno = poišči(izraz, '/')
 
 	if krat == -1 and deljeno == -1:
 		# ni ne '+', ne'/'
-		return potenčni(izraz)
+		return potenčni(izraz, naslovi_spr)
 	elif krat > deljeno:
 		# '*' ima prednost
-		return Množenje(multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
+		return Množenje(multiplikativni(izraz[:krat], naslovi_spr), potenčni(izraz[krat+1:], naslovi_spr))
 	elif deljeno > krat:
 		# '/' ima prednost
-		return Deljenje(multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
+		return Deljenje(multiplikativni(izraz[:deljeno], naslovi_spr), potenčni(izraz[deljeno+1:], naslovi_spr))
 
-def potenčni(izraz: str) -> Potenca:
+def potenčni(izraz: str, naslovi_spr: dict[str, int]) -> Potenca:
 	na = poišči(izraz, '^')
 
 	if na == -1:
 		# ni znaka '^'
-		return osnovni(izraz)
-	return Potenca(potenčni(izraz[:na]), potenčni(izraz[na+1:]))
+		return osnovni(izraz, naslovi_spr)
+	return Potenca(potenčni(izraz[:na], naslovi_spr), potenčni(izraz[na+1:], naslovi_spr))
 
-def osnovni(izraz: str) -> float:
+def osnovni(izraz: str, naslovi_spr: dict[str, int]) -> float:
 	if len(izraz) == 0:
 		return Prazno()
 	if izraz.startswith("(") and izraz.endswith(")"):
-		return aditivni(izraz[1:-1])
+		return aditivni(izraz[1:-1], naslovi_spr)
 	if izraz.startswith('"') and izraz.endswith('"'):
 		return Niz(izraz[1:-1])
 

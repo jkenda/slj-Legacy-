@@ -214,11 +214,13 @@ class Zaporedje(Izraz):
             f"{self.r.compile()}"
         )
 
-class Scope(Vozlišče):
+class Okvir(Vozlišče):
     zaporedje: Zaporedje
+    st_spr: int
 
-    def __init__(self, zaporedje: Zaporedje) -> None:
+    def __init__(self, zaporedje: Zaporedje, st_spr: int) -> None:
         self.zaporedje = zaporedje
+        self.st_spr = st_spr
 
     def print(self, globina: int = 0):
         print(globina * "  " + "{")
@@ -228,15 +230,15 @@ class Scope(Vozlišče):
     def ovrednoti(self, spremenljivke: dict) -> float:
         return self.zaporedje.ovrednoti(spremenljivke)
 
-    def compile(self, st_spr: int) -> str:
+    def compile(self) -> str:
         ukazi = self.zaporedje.compile()
-        ukazi += "POP\n" * st_spr
+        ukazi += "POP\n" * self.st_spr
         return ukazi
 
 class FunkcijskiKlic(Vozlišče):
     ime: str
     argumenti: list[Izraz]
-    ukazi: Scope
+    ukazi: Okvir
 
     def __init__(self, ime: str, ukaz: str, argumenti: list[Izraz], ukazi: Vozlišče) -> None:
         self.ime = ime
