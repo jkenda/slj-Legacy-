@@ -43,6 +43,7 @@ def main(argc: int, argv: list[str]) -> int:
 			break
 		korenski_okvir = optimiziran
 		prehod += 1
+	print("/\n")
 
 	if optimizacija > 0:
 		print(korenski_okvir.drevo())
@@ -54,8 +55,7 @@ def main(argc: int, argv: list[str]) -> int:
 
 def okvir(tekst: str, naslovi_staršev: dict[str, int]) -> Okvir:
 	vrstice = filter(lambda v : v and not v.isspace(), tekst.split('\n'))
-	vrstice = map(lambda v : v.strip(), vrstice)
-	vrstice = list(vrstice)
+	vrstice = list(map(lambda v : v.split('#')[0].strip(), vrstice))
 
 	naslovi_spr = dict()
 	zap = zaporedje(vrstice, naslovi_staršev, naslovi_spr)
@@ -96,7 +96,7 @@ def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str
 	elif izraz.startswith("print(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("print(") : -len(")")]
 		argumenti = notranji_izraz.split(",")
-		return Print([ aditivni(arg.strip(), naslovi_spr) for arg in argumenti ])
+		return Print([ drevo(arg, naslovi_spr) for arg in argumenti ])
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -131,6 +131,9 @@ def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str
 
 
 def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
+	izraz = izraz.strip()
+	if izraz.startswith('"') and izraz.endswith('"'):
+		return Niz(izraz[1:-1])
 	return aditivni(predprocesiran(izraz), naslovi_spr)
 
 def aditivni(izraz: str, naslovi_spr: dict[str, int]) -> Seštevanje:
