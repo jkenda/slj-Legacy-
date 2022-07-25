@@ -10,10 +10,10 @@ def main(argc: int, argv: list[str]) -> int:
         return 1
 
     print_stack = False
-    if argc > 2 and argv[2] == "stack":
+    if "-s" in argv[1:-1]:
         print_stack = True
 
-    with open(argv[1], "r") as file:
+    with open(argv[-1], "r") as file:
         lines = list(map(lambda l: l.strip(), file.readlines()))
 
         stack = []

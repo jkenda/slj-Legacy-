@@ -20,8 +20,10 @@ konstante = {
 
 
 def main(argc: int, argv: list[str]) -> int:
-	if argc != 3:
-		return 1
+	if argc == 3:
+		optimizacija = 0
+	elif argc == 4:
+		optimizacija = int(argv[3])
 
 	with open(argv[1], "r") as file:
 		try:
@@ -31,9 +33,21 @@ def main(argc: int, argv: list[str]) -> int:
 			print(e)
 			return 2
 
-	assembler = korenski_okvir.prevedi()
 	print(korenski_okvir.drevo())
-	print(korenski_okvir.optimiziran().drevo())
+	
+	prehod = 1
+	while True and optimizacija > 0:
+		print(f"PASS {prehod}:")
+		optimiziran = korenski_okvir.optimiziran()
+		if optimiziran == korenski_okvir:
+			break
+		korenski_okvir = optimiziran
+		prehod += 1
+
+	if optimizacija > 0:
+		print(korenski_okvir.drevo())
+
+	assembler = korenski_okvir.prevedi()
 
 	with open(argv[2], "w") as file:
 		file.write(assembler)
