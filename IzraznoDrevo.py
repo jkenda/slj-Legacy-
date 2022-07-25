@@ -8,7 +8,7 @@ class Vozlišče(ABC):
     scope: TVozlišče = None
 
     @abstractmethod
-    def print(self, globina: int = 0):
+    def drevo(self, globina: int = 0):
         pass
 
     @abstractmethod
@@ -24,8 +24,8 @@ class Izraz(Vozlišče):
         self.r = r
 
 class Prazno(Vozlišče):
-    def print(self, globina: int = 0):
-        print(globina * "  " + "()")
+    def drevo(self, globina: int = 0):
+        return globina * "  " + "()\n"
 
     def compile(self) -> str:
         return ""
@@ -36,8 +36,8 @@ class Niz(Vozlišče):
     def __init__(self, niz: float):
         self.niz = niz
 
-    def print(self, globina: int = 0):
-        print(globina * "  " + f'"{self.niz}"')
+    def drevo(self, globina: int = 0):
+        return globina * "  " + f'"{self.niz}"\n'
 
     def compile(self) -> str:
         return f'PUSH "{self.niz}"\n'
@@ -48,8 +48,8 @@ class Število(Vozlišče):
     def __init__(self, število: float):
         self.število = število
 
-    def print(self, globina: int = 0):
-        print(globina * "  " + str(self.število))
+    def drevo(self, globina: int = 0):
+        return globina * "  " + str(self.število) + '\n'
 
     def compile(self) -> str:
         return f"PUSH #{self.število}\n"
@@ -62,17 +62,18 @@ class Spremenljivka(Vozlišče):
         self.ime = ime
         self.poz_na_kopici = pozicija
 
-    def print(self, globina: int = 0):
-        print(globina * "  " + f"({self.ime} @{self.poz_na_kopici})")
+    def drevo(self, globina: int = 0):
+        return globina * "  " + f"{self.ime} @{self.poz_na_kopici}\n"
 
     def compile(self) -> str:
         return f"PUSH @{self.poz_na_kopici}\n"
 
 class Potenca(Izraz):
-    def print(self, globina: int = 0):
-        print(globina * "  " + '^')
-        self.l.print(globina + 1)
-        self.r.print(globina + 1)
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "^\n"
+        drev += self.l.drevo(globina + 1)
+        drev += self.r.drevo(globina + 1)
+        return drev
 
     def compile(self) -> str:
         return (
@@ -82,10 +83,11 @@ class Potenca(Izraz):
         )
 
 class Množenje(Izraz):
-    def print(self, globina: int = 0):
-        print(globina * "  " + '*')
-        self.l.print(globina + 1)
-        self.r.print(globina + 1)
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "*\n"
+        drev += self.l.drevo(globina + 1)
+        drev += self.r.drevo(globina + 1)
+        return drev
 
     def compile(self) -> str:
         return (
@@ -95,10 +97,11 @@ class Množenje(Izraz):
         )
 
 class Deljenje(Izraz):
-    def print(self, globina: int = 0):
-        print(globina * "  " + '/')
-        self.l.print(globina + 1)
-        self.r.print(globina + 1)
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "/\n"
+        drev += self.l.drevo(globina + 1)
+        drev += self.r.drevo(globina + 1)
+        return drev
 
     def compile(self) -> str:
         return (
@@ -108,10 +111,11 @@ class Deljenje(Izraz):
         )
 
 class Modulo(Izraz):
-    def print(self, globina: int = 0):
-        print(globina * "  " + '%')
-        self.l.print(globina + 1)
-        self.r.print(globina + 1)
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "%\n"
+        drev += self.l.drevo(globina + 1)
+        drev += self.r.drevo(globina + 1)
+        return drev
 
     def compile(self) -> str:
         return (
@@ -121,10 +125,11 @@ class Modulo(Izraz):
         )
 
 class Seštevanje(Izraz):
-    def print(self, globina: int = 0):
-        print(globina * "  " + '+')
-        self.l.print(globina + 1)
-        self.r.print(globina + 1)
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "+\n"
+        drev += self.l.drevo(globina + 1)
+        drev += self.r.drevo(globina + 1)
+        return drev
 
     def compile(self) -> str:
         return (
@@ -134,10 +139,11 @@ class Seštevanje(Izraz):
         )
 
 class Odštevanje(Izraz):
-    def print(self, globina: int = 0):
-        print(globina * "  " + '+')
-        self.l.print(globina + 1)
-        self.r.print(globina + 1)
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "-\n"
+        drev += self.l.drevo(globina + 1)
+        drev += self.r.drevo(globina + 1)
+        return drev
 
     def compile(self,) -> str:
         return (
@@ -156,13 +162,13 @@ class Priredba(Vozlišče):
         self.izraz = izraz
         self.nova_spr = nova_spr
 
-    def print(self, globina: int = 0):
-        print(globina * "  " + f"({self.spremenljivka.ime} @{self.spremenljivka.poz_na_kopici}) =")
-        self.izraz.print(globina + 1)
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + self.spremenljivka.drevo()[:-1] + " =\n"
+        drev += self.izraz.drevo(globina + 1)
+        return drev
 
     def compile(self) -> str:
         stavki = self.izraz.compile()
-
         if not self.nova_spr:
             stavki += (
                 f"MOV @{self.spremenljivka.poz_na_kopici}\n"
@@ -175,10 +181,11 @@ class Zaporedje(Izraz):
         self.l = zaporedje
         self.r = priredba
 
-    def print(self, globina: int = 0):
-        self.l.print(globina)
-        print(globina * "  " + ",")
-        self.r.print(globina)
+    def drevo(self, globina: int = 0):
+        drev  = self.l.drevo(globina)
+        drev += globina * "  " + ",\n"
+        drev += self.r.drevo(globina)
+        return drev
 
     def compile(self) -> str:
         return (
@@ -194,10 +201,11 @@ class Okvir(Vozlišče):
         self.zaporedje = zaporedje
         self.st_spr = st_spr
 
-    def print(self, globina: int = 0):
-        print(globina * "  " + "{")
-        self.zaporedje.print(globina+1)
-        print(globina * "  " + "}")
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "{\n"
+        drev += self.zaporedje.drevo(globina+1)
+        drev += globina * "  " + "}\n"
+        return drev
 
     def compile(self) -> str:
         ukazi = self.zaporedje.compile()
@@ -215,10 +223,11 @@ class FunkcijskiKlic(Vozlišče):
         self.argumenti = argumenti
         self.ukazi = ukazi
 
-    def print(self, globina: int = 0):
-        print(globina * "  " + "{")
-        self.zaporedje.print(globina+1)
-        print(globina * "  " + "}")
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "{\n"
+        drev += self.zaporedje.drevo(globina+1)
+        drev += globina * "  " + "}\n"
+        return drev
 
     def compile(self) -> str:
         ukazi = ""
@@ -235,13 +244,14 @@ class Print(Vozlišče):
     def __init__(self, izrazi: list[Izraz]):
         self.izrazi = izrazi
 
-    def print(self, globina: int = 0):
-        print(globina * "  " + "print(")
+    def drevo(self, globina: int = 0):
+        drev  = globina * "  " + "print(\n"
         for izraz in self.izrazi[:-1]:
-            izraz.print(globina + 1)
-            print(",")
-        self.izrazi[-1].print(globina + 1)
-        print(globina * "  " + ")")
+            drev += izraz.drevo(globina + 1)
+            drev += ",\n"
+        drev += self.izrazi[-1].drevo(globina + 1)
+        drev += globina * "  " + ")\n"
+        return drev
 
     def compile(self) -> str:
         ukazi = ""

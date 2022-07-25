@@ -32,7 +32,7 @@ def main(argc: int, argv: list[str]) -> int:
 			return 2
 
 	ukazi = korenski_okvir.compile()
-	korenski_okvir.print()
+	print(korenski_okvir.drevo())
 
 	with open(argv[2], "w") as file:
 		file.write(ukazi)
