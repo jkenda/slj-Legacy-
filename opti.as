@@ -1,145 +1,224 @@
 PUSH #5.0
 PUSH #7.0
-PUSH @0
-PRINT
-POP
+PUSH "\n"
 PUSH @1
+PUSH ", y = "
+PUSH @0
+PUSH "x = "
 PRINT
 POP
-PUSH "številski izrazi:"
 PRINT
 POP
+PRINT
+POP
+PRINT
+POP
+PRINT
+POP
+PUSH "\n"
 PUSH #24.0
+PUSH "številski izraz: "
 PRINT
 POP
-PUSH "enaki veji:"
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #4.0
 PUSH @0
 MUL
+PUSH "enaki veji: "
 PRINT
 POP
-PUSH "x * x -> x^2:"
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #2.0
 POW
+PUSH "x * x -> x^2: "
 PRINT
 POP
+PRINT
+POP
+PRINT
+POP
+PUSH "\n"
 PUSH #2.0
 PUSH @0
 MUL
+PUSH "x + x -> 2 * x: "
 PRINT
 POP
-PUSH "x - x -> 0:"
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #0.0
+PUSH "x - x -> 0: "
 PRINT
 POP
-PUSH "x / x -> 1:"
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #1.0
+PUSH "x / x -> 1: "
 PRINT
 POP
-PUSH "seštevanje:"
 PRINT
 POP
+PRINT
+POP
+PUSH "\nseštevanje:\n"
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #7.0
 ADD
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #7.0
 PUSH @0
 ADD
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #7.0
 ADD
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #7.0
 PUSH @0
 ADD
 PRINT
 POP
-PUSH "odštevanje:"
 PRINT
 POP
+PUSH "\nodštevanje:\n"
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #7.0
 SUB
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #-1.0
 PUSH @0
 SUB
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #7.0
 PUSH @0
 SUB
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #1.0
 SUB
 PRINT
 POP
-PUSH "množenje:"
 PRINT
 POP
+PUSH "\nmnoženje:\n"
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #12.0
 MUL
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #12.0
 PUSH @0
 MUL
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #12.0
 PUSH @0
 MUL
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #12.0
 MUL
 PRINT
 POP
-PUSH "deljenje:"
 PRINT
 POP
+PUSH "\ndeljenje:\n"
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH #12.0
 DIV
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #0.75
 PUSH @0
 DIV
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #12.0
 PUSH @0
 DIV
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH #0.75
 PUSH @0
 MUL
 PRINT
 POP
-PUSH "modulo"
 PRINT
 POP
+PUSH "\nmodulo:\n"
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH @1
 ADD
@@ -147,11 +226,16 @@ PUSH #5.0
 MOD
 PRINT
 POP
+PRINT
+POP
+PUSH "\n"
 PUSH @0
 PUSH @1
 MUL
 PUSH #5.0
 MOD
+PRINT
+POP
 PRINT
 POP
 POP

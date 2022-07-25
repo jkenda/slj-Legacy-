@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from ast import arg
 from io import TextIOWrapper
 import re
 import sys
@@ -26,14 +27,15 @@ def main(argc: int, argv: list[str]) -> int:
 		optimizacija = int(argv[3])
 
 	with open(argv[1], "r") as file:
+		vsebina = file.read()
 		try:
-			vsebina = file.read()
 			korenski_okvir = okvir(vsebina, dict())
 		except Exception as e:
 			print(e)
 			return 2
 
 	print(korenski_okvir.drevo())
+	vrstic_neoptimizirano = len(korenski_okvir.prevedi().split('\n'))
 	
 	prehod = 1
 	while True and optimizacija > 0:
@@ -49,6 +51,8 @@ def main(argc: int, argv: list[str]) -> int:
 		print(korenski_okvir.drevo())
 
 	assembler = korenski_okvir.prevedi()
+	razmerje = len(assembler.split('\n')) / vrstic_neoptimizirano
+	print("optimizirano / neoptimizirano:", round(razmerje*100), "%")
 
 	with open(argv[2], "w") as file:
 		file.write(assembler)
@@ -95,8 +99,7 @@ def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str
 		operator  = Potenca
 	elif izraz.startswith("print(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("print(") : -len(")")]
-		argumenti = notranji_izraz.split(",")
-		return Print([ drevo(arg, naslovi_spr) for arg in argumenti ])
+		return Print(*argumenti(notranji_izraz, naslovi_spr))
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -131,9 +134,6 @@ def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str
 
 
 def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
-	izraz = izraz.strip()
-	if izraz.startswith('"') and izraz.endswith('"'):
-		return Niz(izraz[1:-1])
 	return aditivni(predprocesiran(izraz), naslovi_spr)
 
 def aditivni(izraz: str, naslovi_spr: dict[str, int]) -> Seštevanje:
@@ -207,6 +207,26 @@ def osnovni(izraz: str, naslovi_spr: dict[str, int]) -> float:
 		else:
 			raise Exception(f"'{izraz}' ni definiran.")
 
+def argumenti(izraz: str, naslovi_spr: dict[str, int]) -> tuple:
+	if len(izraz) == 0:
+		return Prazno()
+
+	i_vejice = poišči(izraz, ',')
+
+	vozlišče: Vozlišče
+	argument = izraz[i_vejice+1:].strip()
+
+	if argument.startswith('"') and argument.endswith('"'):
+		vozlišče = Niz(argument[1:-1])
+	else:
+		vozlišče = drevo(argument, naslovi_spr)
+
+	if i_vejice == -1:
+		return (vozlišče, 1)
+
+	zap, st_arg = argumenti(izraz[:i_vejice], naslovi_spr)
+	return (Zaporedje(vozlišče, zap), st_arg + 1)
+
 
 def predprocesiran(izraz: str) -> str:
 	# odstrani presledke
@@ -240,6 +260,7 @@ def predprocesiran(izraz: str) -> str:
 
 def poišči(izraz: str, niz: str) -> int:
 	oklepajev = 0
+	znotraj_navedic = False
 
 	i = len(izraz) - 1
 	while i >= 0:
@@ -247,8 +268,10 @@ def poišči(izraz: str, niz: str) -> int:
 			oklepajev += 1
 		elif izraz[i] == '(':
 			oklepajev -= 1
+		elif izraz[i] == '"':
+			znotraj_navedic = not znotraj_navedic
 
-		if oklepajev == 0 and izraz[i:].startswith(niz):
+		if oklepajev == 0 and not znotraj_navedic and izraz[i:].startswith(niz):
 			# iskani znak ni znotraj oklepajev
 			return i
 		i -= 1

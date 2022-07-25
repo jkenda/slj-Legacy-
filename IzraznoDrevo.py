@@ -36,6 +36,9 @@ class Prazno(Vozlišče):
     def drevo(self, globina: int = 0):
         return globina * "  " + "()\n"
 
+    def optimiziran(self) -> TVozlišče:
+        return Prazno()
+
     def prevedi(self) -> str:
         return ""
 
@@ -436,13 +439,9 @@ class Priredba(Vozlišče):
         return stavki
 
 class Zaporedje(Izraz):
-    def __init__(self, zaporedje: Izraz, priredba: Priredba):
-        self.l = zaporedje
-        self.r = priredba
-
     def drevo(self, globina: int = 0):
         drev  = self.l.drevo(globina)
-        drev += globina * "  " + ",\n"
+        drev += globina * "  " + ";\n"
         drev += self.r.drevo(globina)
         return drev
 
@@ -514,33 +513,26 @@ class FunkcijskiKlic(Vozlišče):
         return ukazi
 
 class Print(Vozlišče):
-    izrazi: list[Izraz]
+    izrazi: Zaporedje
+    st_ukazov: int
 
-    def __init__(self, izrazi: list[Izraz]):
+    def __init__(self, izrazi: Zaporedje, st_ukazov: int):
         self.izrazi = izrazi
+        self.st_ukazov = st_ukazov
 
     def __eq__(self, __o: object) -> bool:
-        return (
-            len(self.izrazi) == len(__o.izrazi) 
-            and all(iz1 == iz2 for iz1, iz2 in zip(self.izrazi, __o.izrazi))
-        )
+        return type(__o) is Print and self.izrazi == __o.izrazi
 
     def drevo(self, globina: int = 0):
         drev  = globina * "  " + "print(\n"
-        for izraz in self.izrazi[:-1]:
-            drev += izraz.drevo(globina + 1)
-            drev += (globina + 1) * "  " + ",\n"
-        drev += self.izrazi[-1].drevo(globina + 1)
+        drev += self.izrazi.drevo(globina + 1)
         drev += globina * "  " + ")\n"
         return drev
 
     def optimiziran(self) -> TVozlišče:
-        return Print([ iz.optimiziran() for iz in self.izrazi ])
+        return Print(self.izrazi.optimiziran(), self.st_ukazov)
 
     def prevedi(self) -> str:
-        ukazi = ""
-        for izraz in self.izrazi:
-            ukazi += izraz.prevedi()
-            ukazi += "PRINT\n"
-            ukazi += "POP\n"
+        ukazi  = self.izrazi.prevedi()
+        ukazi += "PRINT\nPOP\n" * self.st_ukazov
         return ukazi

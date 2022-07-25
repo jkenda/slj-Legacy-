@@ -50,14 +50,18 @@ def main(argc: int, argv: list[str]) -> int:
                     stack.append((float(stevilka)))
                 else:
                     # string
-                    stack.append(besede[1][1:-1])
+                    string = lines[pc][len('PUSH "'):-1]
+                    string = string.replace('\\n', '\n')
+                    string = string.replace('\\r', '\r')
+                    string = string.replace('\\t', '\t')
+                    stack.append(string)
             elif ukaz == "POP":
                 stack.pop()
             elif ukaz == "MOV":
                 stevilka = int(besede[1][1:])
                 stack[stevilka] = stack[-1]
             elif ukaz == "PRINT":
-                if not print_stack: print(str(stack[-1]))
+                if not print_stack: print(str(stack[-1]), end="")
             else:
                 stack[-2] = ukazi[ukaz](stack[-2], stack[-1])
                 stack.pop()
