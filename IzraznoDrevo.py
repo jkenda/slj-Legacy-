@@ -5,14 +5,17 @@ TVozlišče = TypeVar("TVozlišče", bound="Vozlišče")
 TIzraz = TypeVar("TIzraz", bound="Izraz")
 
 class Vozlišče(ABC):
-    scope: TVozlišče = None
 
     @abstractmethod
     def drevo(self, globina: int = 0):
         pass
 
     @abstractmethod
-    def compile(self) -> str:
+    def optimiziran(self) -> TVozlišče:
+        pass
+
+    @abstractmethod
+    def prevedi(self) -> str:
         pass
 
 class Izraz(Vozlišče):
@@ -23,23 +26,29 @@ class Izraz(Vozlišče):
         self.l = l
         self.r = r
 
+    def optimiziran(self) -> TIzraz:
+        return Izraz(self.l.optimiziran(), self.r.optimiziran())
+
 class Prazno(Vozlišče):
     def drevo(self, globina: int = 0):
         return globina * "  " + "()\n"
 
-    def compile(self) -> str:
+    def prevedi(self) -> str:
         return ""
 
 class Niz(Vozlišče):
     niz: str
 
-    def __init__(self, niz: float):
+    def __init__(self, niz: str):
         self.niz = niz
 
     def drevo(self, globina: int = 0):
         return globina * "  " + f'"{self.niz}"\n'
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TVozlišče:
+        return Niz(self.niz)
+
+    def prevedi(self) -> str:
         return f'PUSH "{self.niz}"\n'
 
 class Število(Vozlišče):
@@ -51,22 +60,28 @@ class Število(Vozlišče):
     def drevo(self, globina: int = 0):
         return globina * "  " + str(self.število) + '\n'
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TVozlišče:
+        return Število(self.število)
+
+    def prevedi(self) -> str:
         return f"PUSH #{self.število}\n"
 
 class Spremenljivka(Vozlišče):
     ime: str
-    poz_na_kopici: int
+    naslov: int
 
-    def __init__(self, ime: str, pozicija: int = None):
+    def __init__(self, ime: str, naslov: int = None):
         self.ime = ime
-        self.poz_na_kopici = pozicija
+        self.naslov = naslov
 
     def drevo(self, globina: int = 0):
-        return globina * "  " + f"{self.ime} @{self.poz_na_kopici}\n"
+        return globina * "  " + f"{self.ime} @{self.naslov}\n"
 
-    def compile(self) -> str:
-        return f"PUSH @{self.poz_na_kopici}\n"
+    def optimiziran(self) -> TVozlišče:
+        return Spremenljivka(self.ime, self.naslov)
+
+    def prevedi(self) -> str:
+        return f"PUSH @{self.naslov}\n"
 
 class Potenca(Izraz):
     def drevo(self, globina: int = 0):
@@ -75,10 +90,17 @@ class Potenca(Izraz):
         drev += self.r.drevo(globina + 1)
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TIzraz:
+        l_optimiziran = self.l.optimiziran()
+        r_optimiziran = self.r.optimiziran()
+        if type(l_optimiziran) == Število and type(r_optimiziran) == Število:
+            return Število(l_optimiziran.število ** r_optimiziran.število)
+        return Potenca(self.l.optimiziran(), self.r.optimiziran())
+
+    def prevedi(self) -> str:
         return (
-            f"{self.l.compile()}"
-            f"{self.r.compile()}"
+            f"{self.l.prevedi()}"
+            f"{self.r.prevedi()}"
              "POW\n"
         )
 
@@ -89,10 +111,17 @@ class Množenje(Izraz):
         drev += self.r.drevo(globina + 1)
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TIzraz:
+        l_optimiziran = self.l.optimiziran()
+        r_optimiziran = self.r.optimiziran()
+        if type(l_optimiziran) == Število and type(r_optimiziran) == Število:
+            return Število(l_optimiziran.število * r_optimiziran.število)
+        return Množenje(self.l.optimiziran(), self.r.optimiziran())
+
+    def prevedi(self) -> str:
         return (
-            f"{self.l.compile()}"
-            f"{self.r.compile()}"
+            f"{self.l.prevedi()}"
+            f"{self.r.prevedi()}"
              "MUL\n"
         )
 
@@ -103,10 +132,17 @@ class Deljenje(Izraz):
         drev += self.r.drevo(globina + 1)
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TIzraz:
+        l_optimiziran = self.l.optimiziran()
+        r_optimiziran = self.r.optimiziran()
+        if type(l_optimiziran) == Število and type(r_optimiziran) == Število:
+            return Število(l_optimiziran.število / r_optimiziran.število)
+        return Deljenje(self.l.optimiziran(), self.r.optimiziran())
+
+    def prevedi(self) -> str:
         return (
-            f"{self.l.compile()}"
-            f"{self.r.compile()}"
+            f"{self.l.prevedi()}"
+            f"{self.r.prevedi()}"
              "DIV\n"
         )
 
@@ -117,10 +153,17 @@ class Modulo(Izraz):
         drev += self.r.drevo(globina + 1)
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TIzraz:
+        l_optimiziran = self.l.optimiziran()
+        r_optimiziran = self.r.optimiziran()
+        if type(l_optimiziran) == Število and type(r_optimiziran) == Število:
+            return Število(l_optimiziran.število % r_optimiziran.število)
+        return Modulo(self.l.optimiziran(), self.r.optimiziran())
+
+    def prevedi(self) -> str:
         return (
-            f"{self.l.compile()}"
-            f"{self.r.compile()}"
+            f"{self.l.prevedi()}"
+            f"{self.r.prevedi()}"
              "MOD\n"
         )
 
@@ -131,10 +174,17 @@ class Seštevanje(Izraz):
         drev += self.r.drevo(globina + 1)
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TIzraz:
+        l_optimiziran = self.l.optimiziran()
+        r_optimiziran = self.r.optimiziran()
+        if type(l_optimiziran) == Število and type(r_optimiziran) == Število:
+            return Število(l_optimiziran.število + r_optimiziran.število)
+        return Seštevanje(self.l.optimiziran(), self.r.optimiziran())
+
+    def prevedi(self) -> str:
         return (
-            f"{self.l.compile()}"
-            f"{self.r.compile()}"
+            f"{self.l.prevedi()}"
+            f"{self.r.prevedi()}"
              "ADD\n"
         )
 
@@ -145,10 +195,17 @@ class Odštevanje(Izraz):
         drev += self.r.drevo(globina + 1)
         return drev
 
-    def compile(self,) -> str:
+    def optimiziran(self) -> TIzraz:
+        l_optimiziran = self.l.optimiziran()
+        r_optimiziran = self.r.optimiziran()
+        if type(l_optimiziran) == Število and type(r_optimiziran) == Število:
+            return Število(l_optimiziran.število - r_optimiziran.število)
+        return Odštevanje(self.l.optimiziran(), self.r.optimiziran())
+
+    def prevedi(self,) -> str:
         return (
-            f"{self.l.compile()}"
-            f"{self.r.compile()}"
+            f"{self.l.prevedi()}"
+            f"{self.r.prevedi()}"
              "SUB\n"
         )
 
@@ -167,11 +224,14 @@ class Priredba(Vozlišče):
         drev += self.izraz.drevo(globina + 1)
         return drev
 
-    def compile(self) -> str:
-        stavki = self.izraz.compile()
+    def optimiziran(self) -> TIzraz:
+        return Priredba(self.spremenljivka, self.izraz.optimiziran(), self.nova_spr)
+
+    def prevedi(self) -> str:
+        stavki = self.izraz.prevedi()
         if not self.nova_spr:
             stavki += (
-                f"MOV @{self.spremenljivka.poz_na_kopici}\n"
+                f"MOV @{self.spremenljivka.naslov}\n"
                  "POP\n"
             )
         return stavki
@@ -187,10 +247,13 @@ class Zaporedje(Izraz):
         drev += self.r.drevo(globina)
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TIzraz:
+        return Zaporedje(self.l.optimiziran(), self.r.optimiziran())
+
+    def prevedi(self) -> str:
         return (
-            f"{self.l.compile()}"
-            f"{self.r.compile()}"
+            f"{self.l.prevedi()}"
+            f"{self.r.prevedi()}"
         )
 
 class Okvir(Vozlišče):
@@ -207,21 +270,23 @@ class Okvir(Vozlišče):
         drev += globina * "  " + "}\n"
         return drev
 
-    def compile(self) -> str:
-        ukazi = self.zaporedje.compile()
+    def optimiziran(self) -> TVozlišče:
+        return Okvir(self.zaporedje.optimiziran(), self.st_spr)
+
+    def prevedi(self) -> str:
+        ukazi = self.zaporedje.prevedi()
         ukazi += "POP\n" * self.st_spr
         return ukazi
 
 class FunkcijskiKlic(Vozlišče):
     ime: str
     argumenti: list[Izraz]
-    ukazi: Okvir
+    okvir: Okvir
 
-    def __init__(self, ime: str, ukaz: str, argumenti: list[Izraz], ukazi: Vozlišče):
+    def __init__(self, ime: str, argumenti: list[Izraz], ukazi: Vozlišče):
         self.ime = ime
-        self.ukaz = ukaz
         self.argumenti = argumenti
-        self.ukazi = ukazi
+        self.okvir = ukazi
 
     def drevo(self, globina: int = 0):
         drev  = globina * "  " + "{\n"
@@ -229,10 +294,13 @@ class FunkcijskiKlic(Vozlišče):
         drev += globina * "  " + "}\n"
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TVozlišče:
+        return FunkcijskiKlic(self.ime, [ arg.optimiziran() for arg in self.argumenti ], self.okvir.optimiziran())
+
+    def prevedi(self) -> str:
         ukazi = ""
         for argument in self.argumenti:
-            ukazi += argument.compile()
+            ukazi += argument.prevedi()
         ukazi += self.ukaz + '\n'
         ukazi += "POP\n" * len(self.argumenti)
 
@@ -253,10 +321,13 @@ class Print(Vozlišče):
         drev += globina * "  " + ")\n"
         return drev
 
-    def compile(self) -> str:
+    def optimiziran(self) -> TVozlišče:
+        return Print([ iz.optimiziran() for iz in self.izrazi ])
+
+    def prevedi(self) -> str:
         ukazi = ""
         for izraz in self.izrazi:
-            ukazi += izraz.compile()
+            ukazi += izraz.prevedi()
             ukazi += "PRINT\n"
             ukazi += "POP\n"
         return ukazi

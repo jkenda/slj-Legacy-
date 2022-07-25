@@ -31,11 +31,12 @@ def main(argc: int, argv: list[str]) -> int:
 			print(e)
 			return 2
 
-	ukazi = korenski_okvir.compile()
+	assembler = korenski_okvir.prevedi()
 	print(korenski_okvir.drevo())
+	print(korenski_okvir.optimiziran().drevo())
 
 	with open(argv[2], "w") as file:
-		file.write(ukazi)
+		file.write(assembler)
 
 def okvir(tekst: str, naslovi_staršev: dict[str, int]) -> Okvir:
 	vrstice = filter(lambda v : v and not v.isspace(), tekst.split('\n'))
