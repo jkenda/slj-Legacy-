@@ -12,10 +12,6 @@ class Vozlišče(ABC):
         pass
 
     @abstractmethod
-    def ovrednoti(self, spremenljivke: dict) -> float:
-        pass
-
-    @abstractmethod
     def compile(self) -> str:
         pass
 
@@ -23,16 +19,13 @@ class Izraz(Vozlišče):
     l: TIzraz
     r: TIzraz
 
-    def __init__(self, l: TIzraz, r: TIzraz) -> None:
+    def __init__(self, l: TIzraz, r: TIzraz):
         self.l = l
         self.r = r
 
 class Prazno(Vozlišče):
-    def print(self, globina: int = 0) -> None:
+    def print(self, globina: int = 0):
         print(globina * "  " + "()")
-
-    def ovrednoti(self, _: dict) -> float:
-        return 0.0
 
     def compile(self) -> str:
         return ""
@@ -40,14 +33,11 @@ class Prazno(Vozlišče):
 class Niz(Vozlišče):
     niz: str
 
-    def __init__(self, niz: float) -> None:
+    def __init__(self, niz: float):
         self.niz = niz
 
-    def print(self, globina: int = 0) -> None:
+    def print(self, globina: int = 0):
         print(globina * "  " + f'"{self.niz}"')
-
-    def ovrednoti(self, _: dict) -> float:
-        return self.niz
 
     def compile(self) -> str:
         return f'PUSH "{self.niz}"\n'
@@ -55,14 +45,11 @@ class Niz(Vozlišče):
 class Število(Vozlišče):
     število: float
 
-    def __init__(self, število: float) -> None:
+    def __init__(self, število: float):
         self.število = število
 
-    def print(self, globina: int = 0) -> None:
+    def print(self, globina: int = 0):
         print(globina * "  " + str(self.število))
-
-    def ovrednoti(self, _: dict) -> float:
-        return self.število
 
     def compile(self) -> str:
         return f"PUSH #{self.število}\n"
@@ -71,15 +58,12 @@ class Spremenljivka(Vozlišče):
     ime: str
     poz_na_kopici: int
 
-    def __init__(self, ime: float, pozicija: int = None) -> None:
+    def __init__(self, ime: str, pozicija: int = None):
         self.ime = ime
         self.poz_na_kopici = pozicija
 
     def print(self, globina: int = 0):
-        print(globina * "  " + f"{self.ime} @{self.poz_na_kopici}")
-
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        return 0.0
+        print(globina * "  " + f"({self.ime} @{self.poz_na_kopici})")
 
     def compile(self) -> str:
         return f"PUSH @{self.poz_na_kopici}\n"
@@ -89,9 +73,6 @@ class Potenca(Izraz):
         print(globina * "  " + '^')
         self.l.print(globina + 1)
         self.r.print(globina + 1)
-
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        return self.l.ovrednoti(spremenljivke) ** self.r.ovrednoti(spremenljivke)
 
     def compile(self) -> str:
         return (
@@ -106,9 +87,6 @@ class Množenje(Izraz):
         self.l.print(globina + 1)
         self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        return self.l.ovrednoti(spremenljivke) * self.r.ovrednoti(spremenljivke)
-
     def compile(self) -> str:
         return (
             f"{self.l.compile()}"
@@ -122,9 +100,6 @@ class Deljenje(Izraz):
         self.l.print(globina + 1)
         self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        return self.l.ovrednoti(spremenljivke) / self.r.ovrednoti(spremenljivke)
-
     def compile(self) -> str:
         return (
             f"{self.l.compile()}"
@@ -132,14 +107,24 @@ class Deljenje(Izraz):
              "DIV\n"
         )
 
+class Modulo(Izraz):
+    def print(self, globina: int = 0):
+        print(globina * "  " + '%')
+        self.l.print(globina + 1)
+        self.r.print(globina + 1)
+
+    def compile(self) -> str:
+        return (
+            f"{self.l.compile()}"
+            f"{self.r.compile()}"
+             "MOD\n"
+        )
+
 class Seštevanje(Izraz):
     def print(self, globina: int = 0):
         print(globina * "  " + '+')
         self.l.print(globina + 1)
         self.r.print(globina + 1)
-
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        return self.l.ovrednoti(spremenljivke) + self.r.ovrednoti(spremenljivke)
 
     def compile(self) -> str:
         return (
@@ -154,9 +139,6 @@ class Odštevanje(Izraz):
         self.l.print(globina + 1)
         self.r.print(globina + 1)
 
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        return self.l.ovrednoti(spremenljivke) - self.r.ovrednoti(spremenljivke)
-
     def compile(self,) -> str:
         return (
             f"{self.l.compile()}"
@@ -169,18 +151,14 @@ class Priredba(Vozlišče):
     izraz: Izraz
     nova_spr: bool
 
-    def __init__(self, spremenljivka: Spremenljivka, izraz: Izraz, nova_spr: bool) -> None:
+    def __init__(self, spremenljivka: Spremenljivka, izraz: Izraz, nova_spr: bool):
         self.spremenljivka = spremenljivka
         self.izraz = izraz
         self.nova_spr = nova_spr
 
     def print(self, globina: int = 0):
-        print(globina * "  " + f"{self.spremenljivka.ime} =")
+        print(globina * "  " + f"({self.spremenljivka.ime} @{self.spremenljivka.poz_na_kopici}) =")
         self.izraz.print(globina + 1)
-
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        spremenljivke[self.spremenljivka.ime] = self.izraz.ovrednoti(spremenljivke)
-        return spremenljivke[self.spremenljivka.ime]
 
     def compile(self) -> str:
         stavki = self.izraz.compile()
@@ -192,21 +170,15 @@ class Priredba(Vozlišče):
             )
         return stavki
 
-TZaporedje = TypeVar("TZaporedje", bound="Zaporedje")
-
 class Zaporedje(Izraz):
-    def __init__(self, zaporedje: Izraz, priredba: Priredba) -> None:
+    def __init__(self, zaporedje: Izraz, priredba: Priredba):
         self.l = zaporedje
         self.r = priredba
 
     def print(self, globina: int = 0):
         self.l.print(globina)
-        print(globina * "  " + ";")
-        self.r.print(globina + 1)
-
-    def ovrednoti(self, spremenljivke: dict) -> float:
-        self.l.ovrednoti(spremenljivke)
-        return self.r.ovrednoti(spremenljivke)
+        print(globina * "  " + ",")
+        self.r.print(globina)
 
     def compile(self) -> str:
         return (
@@ -218,7 +190,7 @@ class Okvir(Vozlišče):
     zaporedje: Zaporedje
     st_spr: int
 
-    def __init__(self, zaporedje: Zaporedje, st_spr: int) -> None:
+    def __init__(self, zaporedje: Zaporedje, st_spr: int):
         self.zaporedje = zaporedje
         self.st_spr = st_spr
 
@@ -226,9 +198,6 @@ class Okvir(Vozlišče):
         print(globina * "  " + "{")
         self.zaporedje.print(globina+1)
         print(globina * "  " + "}")
-
-    def ovrednoti(self, spremenljivke: dict) -> float:
-        return self.zaporedje.ovrednoti(spremenljivke)
 
     def compile(self) -> str:
         ukazi = self.zaporedje.compile()
@@ -240,7 +209,7 @@ class FunkcijskiKlic(Vozlišče):
     argumenti: list[Izraz]
     ukazi: Okvir
 
-    def __init__(self, ime: str, ukaz: str, argumenti: list[Izraz], ukazi: Vozlišče) -> None:
+    def __init__(self, ime: str, ukaz: str, argumenti: list[Izraz], ukazi: Vozlišče):
         self.ime = ime
         self.ukaz = ukaz
         self.argumenti = argumenti
@@ -250,9 +219,6 @@ class FunkcijskiKlic(Vozlišče):
         print(globina * "  " + "{")
         self.zaporedje.print(globina+1)
         print(globina * "  " + "}")
-
-    def ovrednoti(self, spremenljivke: dict) -> float:
-        return self.argumenti[0].ovrednoti(spremenljivke)
 
     def compile(self) -> str:
         ukazi = ""
@@ -266,7 +232,7 @@ class FunkcijskiKlic(Vozlišče):
 class Print(Vozlišče):
     izrazi: list[Izraz]
 
-    def __init__(self, izrazi: list[Izraz]) -> None:
+    def __init__(self, izrazi: list[Izraz]):
         self.izrazi = izrazi
 
     def print(self, globina: int = 0):
@@ -276,9 +242,6 @@ class Print(Vozlišče):
             print(",")
         self.izrazi[-1].print(globina + 1)
         print(globina * "  " + ")")
-
-    def ovrednoti(self, spremenljivke = dict()) -> float:
-        return None
 
     def compile(self) -> str:
         ukazi = ""

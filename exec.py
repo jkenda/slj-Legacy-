@@ -1,28 +1,44 @@
 #!/usr/bin/python3
 
-from operator import add, sub, mul, truediv
+from operator import add, sub, mul, truediv, mod
 import sys
 
-ukazi = { "ADD": add, "SUB": sub, "MUL": mul, "DIV": truediv, "POW": pow }
+ukazi = { "ADD": add, "SUB": sub, "MUL": mul, "DIV": truediv, "MOD": mod, "POW": pow }
 
 def main(argc: int, argv: list[str]) -> int:
-    if argc != 2:
+    if argc not in [2, 3]:
         return 1
 
+    print_stack = False
+    if argc > 2 and argv[2] == "stack":
+        print_stack = True
+
     with open(argv[1], "r") as file:
-        lines = map(lambda l: l.strip(), file.readlines())
+        lines = list(map(lambda l: l.strip(), file.readlines()))
 
         stack = []
+        pc = 0
 
-        for line in lines:
-            if not line or line.isspace():
-                i += 1
+        while True:
+            if not lines[pc] or lines[pc].isspace():
+                # prazna vrstica
+                pc += 1
                 continue
 
-            # print(line + ":", end=" ")
-            besede = line.split(' ')
+            besede = lines[pc].split(' ')
             ukaz = besede[0]
+            if ukaz.startswith('#'):
+                # komentar
+                pc +=1
+                continue
 
+            if ukaz == "JMP":
+                tip = besede[1][0]
+                stevilka = int(besede[1][1:])
+                if tip == '#':
+                    pc = stevilka - 1
+                elif tip == '@':
+                    pc = stack[stevilka] - 1
             if ukaz == "PUSH":
                 tip = besede[1][0]
                 stevilka = besede[1][1:]
@@ -41,12 +57,16 @@ def main(argc: int, argv: list[str]) -> int:
                 stevilka = int(besede[1][1:])
                 stack[stevilka] = stack[-1]
             elif ukaz == "PRINT":
-                print(str(stack[-1]))
+                if not print_stack: print(str(stack[-1]))
             else:
                 stack[-2] = ukazi[ukaz](stack[-2], stack[-1])
                 stack.pop()
 
-            # print(stack)
+            if print_stack: print(lines[pc] + ":", stack)
+
+            pc += 1
+            if len(stack) == 0:
+                break
 
 if __name__ == "__main__":
     exit(main(len(sys.argv), sys.argv))

@@ -25,7 +25,8 @@ def main(argc: int, argv: list[str]) -> int:
 
 	with open(argv[1], "r") as file:
 		try:
-			korenski_okvir = okvir(file)
+			vsebina = file.read()
+			korenski_okvir = okvir(vsebina, dict())
 		except Exception as e:
 			print(e)
 			return 2
@@ -36,52 +37,82 @@ def main(argc: int, argv: list[str]) -> int:
 	with open(argv[2], "w") as file:
 		file.write(ukazi)
 
-def okvir(file: TextIOWrapper) -> Okvir:
-	vrstice = filter(lambda v : v and not v.isspace(), file.readlines())
+def okvir(tekst: str, naslovi_staršev: dict[str, int]) -> Okvir:
+	vrstice = filter(lambda v : v and not v.isspace(), tekst.split('\n'))
 	vrstice = map(lambda v : v.strip(), vrstice)
 	vrstice = list(vrstice)
 
 	naslovi_spr = dict()
+	zap = zaporedje(vrstice, naslovi_staršev, naslovi_spr)
+	return Okvir(zap, len(naslovi_spr))
 
-	return Okvir(zaporedje(vrstice, naslovi_spr), len(naslovi_spr))
-
-def zaporedje(vrstice: list[str], naslovi_spr: dict[str, int]) -> Zaporedje:
+def zaporedje(vrstice: list[str], naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Zaporedje:
 	if len(vrstice) == 0:
 		return Prazno()
 	if len(vrstice) == 1:
-		return priredba(vrstice[0], naslovi_spr)
+		return priredba(vrstice[0], naslovi_staršev, naslovi_spr)
 	if len(vrstice) == 2:
-		return Zaporedje(priredba(vrstice[0], naslovi_spr), priredba(vrstice[1], naslovi_spr))
+		return Zaporedje(priredba(vrstice[0], naslovi_staršev, naslovi_spr), priredba(vrstice[1], naslovi_staršev, naslovi_spr))
 
-	return Zaporedje(zaporedje(vrstice[:-1], naslovi_spr), priredba(vrstice[-1], naslovi_spr))
+	return Zaporedje(zaporedje(vrstice[:-1], naslovi_staršev, naslovi_spr), priredba(vrstice[-1], naslovi_staršev, naslovi_spr))
 
-def priredba(izraz: str, naslovi_spr: dict[str, int]) -> Priredba:
-	st_enacajev = izraz.count('=')
+def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Priredba:
+	operator: Izraz = None
+	razdeljen = ""
 
-	if st_enacajev == 1:
-		razdeljen = list(map(lambda x: x.strip(), izraz.split('=')))
-		if re.fullmatch(var_regex, razdeljen[0]):
-			if razdeljen[0] not in konstante:
-				ime = razdeljen[0]
-				izrazno_drevo = drevo(razdeljen[1], naslovi_spr)
-
-				pozicija = naslovi_spr.get(ime)
-				if pozicija != None:
-					return Priredba(Spremenljivka(ime, naslovi_spr[ime]), izrazno_drevo, False)
-				else:
-					naslovi_spr[ime] = len(naslovi_spr)
-					return Priredba(Spremenljivka(ime, naslovi_spr[ime]), izrazno_drevo, True)
-			else:
-				raise Exception(f"'{ime}' je konstanta.")
-		else:
-			raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
-			
-	if izraz.startswith("print(") and izraz.endswith(")"):
+	if izraz.rfind("+=") != -1:
+		razdeljen = izraz.split("+=")
+		operator  = Seštevanje
+	elif izraz.rfind("-=") != -1:
+		razdeljen = izraz.split("-=")
+		operator  = Odštevanje
+	elif izraz.rfind("*=") != -1:
+		razdeljen = izraz.split("*=")
+		operator  = Množenje
+	elif izraz.rfind("/=") != -1:
+		razdeljen = izraz.split("/=")
+		operator  = Deljenje
+	elif izraz.rfind("%=") != -1:
+		razdeljen = izraz.split("%=")
+		operator  = Modulo
+	elif izraz.rfind("^=") != -1:
+		razdeljen = izraz.split("^=")
+		operator  = Potenca
+	elif izraz.startswith("print(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("print(") : -len(")")]
 		argumenti = notranji_izraz.split(",")
 		return Print([ aditivni(arg.strip(), naslovi_spr) for arg in argumenti ])
 	else:
-		raise Exception(f"Neveljaven izraz: '{izraz}'")
+		st_enacajev = izraz.count('=')
+		if st_enacajev == 1:
+			razdeljen = izraz.split("=")
+		else:
+			raise Exception(f"Neveljaven izraz: '{izraz}'")
+
+	razdeljen[0] = razdeljen[0].strip()
+	razdeljen[1] = razdeljen[1].strip()
+
+	if re.fullmatch(var_regex, razdeljen[0]):
+		ime = razdeljen[0]
+
+		if ime not in konstante:
+			nova_spr = False
+			pozicija = naslovi_spr.get(ime)
+			
+			if pozicija == None:
+				naslovi_spr[ime] = len(naslovi_spr)
+				nova_spr = True
+			
+			drev = drevo(razdeljen[1], naslovi_staršev | naslovi_spr)
+
+			if (operator != None): 
+				drev = operator(Spremenljivka(ime, naslovi_spr[ime]), drev)
+
+			return Priredba(Spremenljivka(ime, naslovi_spr[ime]), drev, nova_spr)
+		else:
+			raise Exception(f"'{ime}' je konstanta.")
+	else:
+		raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
 
 
 def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
@@ -117,16 +148,20 @@ def aditivni(izraz: str, naslovi_spr: dict[str, int]) -> Seštevanje:
 def multiplikativni(izraz: str, naslovi_spr: dict[str, int]) -> float:
 	krat    = poišči(izraz, '*')
 	deljeno = poišči(izraz, '/')
+	modulo  = poišči(izraz, '%')
 
-	if krat == -1 and deljeno == -1:
-		# ni ne '+', ne'/'
+	if krat == -1 and deljeno == -1 and modulo == -1:
+		# ni ne '+', ne'/', ne '%
 		return potenčni(izraz, naslovi_spr)
-	elif krat > deljeno:
+	elif krat > deljeno and krat > modulo:
 		# '*' ima prednost
 		return Množenje(multiplikativni(izraz[:krat], naslovi_spr), potenčni(izraz[krat+1:], naslovi_spr))
-	elif deljeno > krat:
+	elif deljeno > krat and deljeno > modulo:
 		# '/' ima prednost
 		return Deljenje(multiplikativni(izraz[:deljeno], naslovi_spr), potenčni(izraz[deljeno+1:], naslovi_spr))
+	elif modulo > krat and modulo > deljeno:
+		# '%' ima prednost
+		return Modulo(multiplikativni(izraz[:modulo], naslovi_spr), potenčni(izraz[modulo+1:], naslovi_spr))
 
 def potenčni(izraz: str, naslovi_spr: dict[str, int]) -> Potenca:
 	na = poišči(izraz, '^')
@@ -164,24 +199,23 @@ def predprocesiran(izraz: str) -> str:
 	dolzina = len(predproc_str)
 	while i < dolzina:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
+		vstavi_krat = False
+		if prev == ')' and curr == '(':
+			# )(
+			vstavi_krat = True
 		if prev.isnumeric():
-			if curr.isalpha():
-				# 2a
-				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-				dolzina += 1
-			if curr == '(':
-				# 2(...)
-				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-				dolzina += 1
+			# 2a, 2(...)
+			if curr.isalpha() or curr == '(':
+				vstavi_krat = True
 		elif prev == ')':
-			if not curr.isnumeric() and not curr in ignore:
-				# (...)a
-				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-				dolzina += 1
-			if curr.isnumeric():
-				# (...)2
-				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-				dolzina += 1
+				# (...)a, (...)2
+			if curr.isalpha() or curr.isnumeric():
+				vstavi_krat = True
+			
+		if vstavi_krat:
+			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+			dolzina += 1
+			i += 1
 		i += 1
 
 	return predproc_str

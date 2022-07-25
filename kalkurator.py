@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
-from operator import add, sub, mul, truediv
+from operator import add, sub, mul, truediv, mod
 import re
 
-operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '^': pow }
+operatorji = { '+': add, '-': sub, '*': mul, '/': truediv, '%': mod, '^': pow }
 ignore = { '+', '-', '*', '/', '^', ')' }
 
 var_regex = r"[a-zA-Z_]\w*"
@@ -70,19 +70,27 @@ def predprocesiran(izraz: str) -> str:
 	dolzina = len(predproc_str)
 	while i < dolzina:
 		prev = predproc_str[i-1]; curr = predproc_str[i]
-		if prev.isnumeric() and not curr.isnumeric() and not curr in ignore:
+		vstavi_krat = False
+		if prev == ')' and curr == '(':
+			# )(
+			vstavi_krat = True
+		if prev.isnumeric():
 			# 2a, 2(...)
-			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+			if curr.isalpha() or curr == '(':
+				vstavi_krat = True
 		elif curr == '(' and prev.isalpha():
 			# a(...)
-			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+			vstavi_krat = True
 		elif prev == ')':
-			if not curr.isnumeric() and not curr in ignore:
-				# (...)a
-				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-			if curr.isnumeric():
-				# (...)2
-				predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+				# (...)a, (...)2
+			if curr.isalpha() or curr.isnumeric():
+				vstavi_krat = True
+			
+		if vstavi_krat:
+			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
+			dolzina += 1
+			i += 1
+
 		i += 1
 
 	return predproc_str
@@ -112,16 +120,20 @@ def aditivni(izraz: str) -> float:
 def multiplikativni(izraz: str) -> float:
 	krat    = poišči(izraz, '*')
 	deljeno = poišči(izraz, '/')
+	modulo  = poišči(izraz, '%')
 
-	if krat == -1 and deljeno == -1:
+	if krat == -1 and deljeno == -1 and modulo == -1:
 		# ni ne '+', ne'/'
 		return potenčni(izraz)
-	elif krat > deljeno:
+	elif krat > deljeno and krat > modulo:
 		# '*' ima prednost
 		return multiplikativni(izraz[:krat]) * potenčni(izraz[krat+1:])
-	elif deljeno > krat:
+	elif deljeno > krat and deljeno > modulo:
 		# '/' ima prednost
 		return multiplikativni(izraz[:deljeno]) / potenčni(izraz[deljeno+1:])
+	elif modulo > krat and modulo > deljeno:
+		# '%' ima prednost
+		return multiplikativni(izraz[:deljeno]) % potenčni(izraz[deljeno+1:])
 
 def potenčni(izraz: str) -> float:
 	na = poišči(izraz, '^')
