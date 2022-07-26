@@ -2,8 +2,8 @@ x = 6 / (1 + 1) ((5 - 3) + (0.5 + 0.5))
 x += (1 * x)(1 * x)
 y = x * 2 + x * 2
 z = y % 7
-print("rezultati:")
-print(x)
-print(y)
-print(x+3)
-print(z)
+print("rezultati:\n")
+print(x, "\n")
+print(y, "\n")
+print(x + 3, "\n")
+print(z, "\n")

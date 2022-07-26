@@ -35,6 +35,7 @@ def main(argc: int, argv: list[str]) -> int:
 			return 2
 
 	print(korenski_okvir.drevo())
+
 	vrstic_neoptimizirano = len(korenski_okvir.prevedi().split('\n'))
 	
 	prehod = 1
@@ -63,7 +64,7 @@ def okvir(tekst: str, naslovi_staršev: dict[str, int]) -> Okvir:
 
 	naslovi_spr = dict()
 	zap = zaporedje(vrstice, naslovi_staršev, naslovi_spr)
-	return Okvir(zap, len(naslovi_spr))
+	return Okvir(zap)
 
 def zaporedje(vrstice: list[str], naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Zaporedje:
 	if len(vrstice) == 0:
@@ -216,10 +217,7 @@ def argumenti(izraz: str, naslovi_spr: dict[str, int]) -> tuple:
 	vozlišče: Vozlišče
 	argument = izraz[i_vejice+1:].strip()
 
-	if argument.startswith('"') and argument.endswith('"'):
-		vozlišče = Niz(argument[1:-1])
-	else:
-		vozlišče = drevo(argument, naslovi_spr)
+	vozlišče = drevo(argument, naslovi_spr)
 
 	if i_vejice == -1:
 		return (vozlišče, 1)
@@ -230,7 +228,13 @@ def argumenti(izraz: str, naslovi_spr: dict[str, int]) -> tuple:
 
 def predprocesiran(izraz: str) -> str:
 	# odstrani presledke
-	predproc_str = re.sub(r"\s+", "", izraz)
+	predproc_str = ""
+	med_navednicami = False
+	for char in izraz:
+		if char == '"':
+			med_navednicami = not med_navednicami
+		if med_navednicami or not char.isspace():
+			predproc_str += char
 
 	# dodaj znak '*' v implicitno množenje
 	i = 1

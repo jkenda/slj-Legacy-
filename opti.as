@@ -2,222 +2,220 @@ PUSH #5.0
 PUSH #7.0
 PUSH "\n"
 PUSH @1
-PUSH ", y = "
+PUSH "= "
+PUSH ", y "
 PUSH @0
 PUSH "x = "
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
+PRINT
 PUSH "\n"
 PUSH #24.0
-PUSH "številski izraz: "
+PUSH " "
+PUSH "raz:"
+PUSH "i iz"
+PUSH "ilsk"
+PUSH "štev"
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
+PRINT
+PRINT
+PRINT
+PRINT
 PUSH "\n"
 PUSH #4.0
 PUSH @0
 MUL
-PUSH "enaki veji: "
+PUSH "ji: "
+PUSH "i ve"
+PUSH "enak"
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
+PRINT
+PRINT
 PUSH "\n"
 PUSH @0
 PUSH #2.0
 POW
-PUSH "x * x -> x^2: "
+PUSH ": "
+PUSH " x^2"
+PUSH "x ->"
+PUSH "x * "
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
+PRINT
+PRINT
+PRINT
 PUSH "\n"
 PUSH #2.0
 PUSH @0
 MUL
-PUSH "x + x -> 2 * x: "
+PUSH " x: "
+PUSH " 2 *"
+PUSH "x ->"
+PUSH "x + "
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
+PRINT
+PRINT
+PRINT
 PUSH "\n"
 PUSH #0.0
-PUSH "x - x -> 0: "
+PUSH " 0: "
+PUSH "x ->"
+PUSH "x - "
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
+PRINT
+PRINT
 PUSH "\n"
 PUSH #1.0
-PUSH "x / x -> 1: "
+PUSH " 1: "
+PUSH "x ->"
+PUSH "x / "
 PRINT
-POP
 PRINT
-POP
 PRINT
-POP
-PUSH "\nseštevanje:\n"
 PRINT
-POP
+PRINT
+PUSH "\n"
+PUSH "nje:"
+PUSH "teva"
+PUSH "\nseš"
+PRINT
+PRINT
+PRINT
+PRINT
 PUSH "\n"
 PUSH @0
 PUSH #7.0
 ADD
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #7.0
 PUSH @0
 ADD
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH @0
 PUSH #7.0
 ADD
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #7.0
 PUSH @0
 ADD
 PRINT
-POP
 PRINT
-POP
-PUSH "\nodštevanje:\n"
+PUSH "\n"
+PUSH "nje:"
+PUSH "teva"
+PUSH "\nodš"
 PRINT
-POP
+PRINT
+PRINT
+PRINT
 PUSH "\n"
 PUSH @0
 PUSH #7.0
 SUB
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #-1.0
 PUSH @0
 SUB
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #7.0
 PUSH @0
 SUB
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH @0
 PUSH #1.0
 SUB
 PRINT
-POP
 PRINT
-POP
-PUSH "\nmnoženje:\n"
+PUSH "e:\n"
+PUSH "ženj"
+PUSH "\nmno"
 PRINT
-POP
+PRINT
+PRINT
 PUSH "\n"
 PUSH @0
 PUSH #12.0
 MUL
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #12.0
 PUSH @0
 MUL
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #12.0
 PUSH @0
 MUL
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH @0
 PUSH #12.0
 MUL
 PRINT
-POP
 PRINT
-POP
-PUSH "\ndeljenje:\n"
+PUSH "e:\n"
+PUSH "jenj"
+PUSH "\ndel"
 PRINT
-POP
+PRINT
+PRINT
 PUSH "\n"
 PUSH @0
 PUSH #12.0
 DIV
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #0.75
 PUSH @0
 DIV
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #12.0
 PUSH @0
 DIV
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH #0.75
 PUSH @0
 MUL
 PRINT
-POP
 PRINT
-POP
-PUSH "\nmodulo:\n"
+PUSH "\n"
+PUSH "ulo:"
+PUSH "\nmod"
 PRINT
-POP
+PRINT
+PRINT
 PUSH "\n"
 PUSH @0
 PUSH @1
@@ -225,9 +223,7 @@ ADD
 PUSH #5.0
 MOD
 PRINT
-POP
 PRINT
-POP
 PUSH "\n"
 PUSH @0
 PUSH @1
@@ -235,8 +231,8 @@ MUL
 PUSH #5.0
 MOD
 PRINT
-POP
 PRINT
-POP
+PUSH "xx\n"
+PRINT
 POP
 POP

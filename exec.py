@@ -25,43 +25,44 @@ def main(argc: int, argv: list[str]) -> int:
                 pc += 1
                 continue
 
-            besede = lines[pc].split(' ')
-            ukaz = besede[0]
+            ukaz = lines[pc].strip().split(' ')[0]
+
             if ukaz.startswith('#'):
                 # komentar
                 pc +=1
                 continue
-
-            if ukaz == "JMP":
-                tip = besede[1][0]
-                stevilka = int(besede[1][1:])
+            elif ukaz == "JMP":
+                ostanek = lines[pc][len(ukaz)+1:]
+                tip = ostanek[0]
                 if tip == '#':
-                    pc = stevilka - 1
+                    pc = ostanek[1:] - 1
                 elif tip == '@':
-                    pc = stack[stevilka] - 1
+                    pc = stack[ostanek[1:]] - 1
             if ukaz == "PUSH":
-                tip = besede[1][0]
-                stevilka = besede[1][1:]
+                ostanek = lines[pc][len(ukaz)+1:]
+                tip = ostanek[0]
                 if tip == '@':
                     # naslov
-                    stack.append(stack[int(stevilka)])
+                    stack.append(stack[int(ostanek[1:])])
                 elif tip == '#':
                     # literal
-                    stack.append((float(stevilka)))
-                else:
-                    # string
-                    string = lines[pc][len('PUSH "'):-1]
-                    string = string.replace('\\n', '\n')
-                    string = string.replace('\\r', '\r')
-                    string = string.replace('\\t', '\t')
-                    stack.append(string)
+                    stack.append((float(ostanek[1:])))
+                elif tip == '"':
+                    # char
+                    char = ostanek[1:-1]
+                    char = char.replace('\\n', '\n')
+                    char = char.replace('\\r', '\r')
+                    char = char.replace('\\t', '\t')
+                    stack.append(char)
             elif ukaz == "POP":
                 stack.pop()
             elif ukaz == "MOV":
-                stevilka = int(besede[1][1:])
-                stack[stevilka] = stack[-1]
+                ostanek = lines[pc][len(ukaz)+1:]
+                stack[int(ostanek[1:])] = stack[-1]
             elif ukaz == "PRINT":
+                ostanek = lines[pc][len(ukaz)+1:]
                 if not print_stack: print(str(stack[-1]), end="")
+                stack.pop()
             else:
                 stack[-2] = ukazi[ukaz](stack[-2], stack[-1])
                 stack.pop()

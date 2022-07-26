@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from math import ceil
 from typing import TypeVar
 
 TVozlišče = TypeVar("TVozlišče", bound="Vozlišče")
@@ -26,12 +27,18 @@ class Izraz(Vozlišče):
         self.l = l
         self.r = r
 
-    def __eq__(self, __o: TIzraz) -> bool:
-        return type(self) == type(__o) and self.l == __o.l and self.r == __o.r
+    def __len__(self) -> int:
+        return 1
+
+    def __eq__(self, o: TIzraz) -> bool:
+        return type(self) == type(o) and self.l == o.l and self.r == o.r
 
 class Prazno(Vozlišče):
-    def __eq__(self, __o: object) -> bool:
-        return type(self) is Prazno and type(__o) is Prazno
+    def __len__(self) -> int:
+        return 0
+
+    def __eq__(self, o: object) -> bool:
+        return type(self) is Prazno and type(o) is Prazno
 
     def drevo(self, globina: int = 0):
         return globina * "  " + "()\n"
@@ -46,25 +53,57 @@ class Niz(Vozlišče):
     niz: str
 
     def __init__(self, niz: str):
+        niz = niz.replace('\\n', '\n')
+        niz = niz.replace('\\r', '\r')
+        niz = niz.replace('\\t', '\t')
         self.niz = niz
 
-    def __str__(self) -> str:
-        return self.niz
+    def __len__(self) -> int:
+        return ceil(len(self.niz) / 4)
 
-    def __eq__(self, __o: object) -> bool:
-        return type(self) == type(__o) and self.niz == __o.niz
+    def __str__(self) -> str:
+        niz = self.niz
+        niz = niz.replace('\n', '\\n')
+        niz = niz.replace('\r', '\\r')
+        niz = niz.replace('\t', '\\t')
+        return niz
+
+    def __eq__(self, o: object) -> bool:
+        return type(self) == type(o) and self.niz == o.niz
 
     def __add__(self, o: object):
-        return self.niz + o.niz
+        return Niz(self.niz + str(o))
+
+    def __mul__(self, o: object):
+        return Niz(self.niz * int(o))
 
     def drevo(self, globina: int = 0):
-        return globina * "  " + f'"{self.niz}"\n'
+        return globina * "  " + f'"{self}"\n'
 
     def optimiziran(self) -> TVozlišče:
         return Niz(self.niz)
 
     def prevedi(self) -> str:
-        return f'PUSH "{self.niz}"\n'
+        ostanek = len(self.niz) % 4
+        ukazi = ""
+
+        if ostanek > 0:
+            string = self.niz[-ostanek:]
+            string = string.replace('\n', '\\n')
+            string = string.replace('\r', '\\r')
+            string = string.replace('\t', '\\t')
+            ukazi += f'PUSH "{string}"\n'
+
+        start = len(self.niz) - ostanek - 4
+
+        for i in range(start, -1, -4):
+            string = self.niz[i:i+4]
+            string = string.replace('\n', '\\n')
+            string = string.replace('\r', '\\r')
+            string = string.replace('\t', '\\t')
+            ukazi += f'PUSH "{string}"\n'
+        
+        return ukazi
 
 class Število(Vozlišče):
     število: float
@@ -72,29 +111,40 @@ class Število(Vozlišče):
     def __init__(self, število: float):
         self.število = število
 
+    def __len__(self) -> int:
+        return 1
+
     def __str__(self) -> str:
         return str(self.število)
 
-    def __eq__(self, __o: bool) -> bool:
-        return type(self) == type(__o) and self.število == __o.število
+    def __float__(self) -> int:
+        return self.število
+
+    def __int__(self) -> int:
+        return int(self.število)
+
+    def __eq__(self, o: bool) -> bool:
+        return type(self) is type(o) and self.število == o.število
 
     def __add__(self, o: object):
-        return Število(self.število + o.število)
+        if type(o) == Niz:
+            return Niz(o.niz * int(self.število))
+        return Število(self.število + float(o))
 
     def __sub__(self, o: object):
-        return Število(self.število - o.število)
+        return Število(self.število - float(o))
 
     def __mul__(self, o: object):
-        return Število(self.število * o.število)
+        return Število(self.število * float(o))
 
     def __truediv__(self, o: object):
-        return Število(self.število / o.število)
+        return Število(self.število / float(o))
 
     def __pow__(self, o: object):
-        return Število(self.število ** o.število)
+        return Število(self.število ** float(o))
 
     def __mod__(self, o: object):
-        return Število(self.število % o.število)
+        return Število(self.število % float(o))
 
     def drevo(self, globina: int = 0):
         return globina * "  " + str(self.število) + '\n'
@@ -113,14 +163,17 @@ class Spremenljivka(Vozlišče):
         self.ime = ime
         self.naslov = naslov
 
+    def __len__(self) -> int:
+        return 1
+
     def __str__(self) -> str:
         return f"{self.ime} @{self.naslov}"
 
-    def __eq__(self, __o: object) -> bool:
+    def __eq__(self, o: object) -> bool:
         return (
-            type(self) == type(__o) 
-            and self.ime == __o.ime
-            and self.naslov == __o.naslov
+            type(self) is type(o) 
+            and self.ime == o.ime
+            and self.naslov == o.naslov
         )
 
     def drevo(self, globina: int = 0):
@@ -134,34 +187,42 @@ class Spremenljivka(Vozlišče):
 
 class Potenca(Izraz):
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "^\n"
-        drev += self.l.drevo(globina + 1)
-        drev += self.r.drevo(globina + 1)
-        return drev
+        return (
+            globina * "  " + "^\n" +
+            self.l.drevo(globina + 1) +
+            self.r.drevo(globina + 1)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Potenca(self.l.optimiziran(), self.r.optimiziran())
 
         if type(opti.l) is Število and type(opti.r) is Število:
-            print(f"OPTI {opti.l} ^ {opti.r}", end="")
+            print(f"OPTI {opti.l} ^ {opti.r} -> {opti.l ** opti.r}")
             opti = opti.l ** opti.r
-            print(f" -> {opti}")
 
         return opti
 
     def prevedi(self) -> str:
         return (
-            f"{self.l.prevedi()}"
-            f"{self.r.prevedi()}"
-             "POW\n"
+            self.l.prevedi() +
+            self.r.prevedi() +
+            "POW\n"
         )
 
 class Množenje(Izraz):
+    def __init__(self, l: TIzraz, r: TIzraz):
+        super().__init__(l, r)
+        if type(self.l) is Niz and type(self.r) is Število:
+            self = self.l + self.r
+        elif type(self.l) is Število and type(self.r) is Niz:
+            self = self.l + self.r
+
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "*\n"
-        drev += self.l.drevo(globina + 1)
-        drev += self.r.drevo(globina + 1)
-        return drev
+        return (
+            globina * "  " + "*\n" +
+            self.l.drevo(globina + 1) +
+            self.r.drevo(globina + 1)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Množenje(self.l.optimiziran(), self.r.optimiziran())
@@ -169,10 +230,9 @@ class Množenje(Izraz):
         if opti.l == opti.r:
             print("OPTI x * x -> x^2")
             opti = Potenca(opti.l, Število(2.0))
-        elif type(opti.l) is Število and type(opti.r) is Število:
-            print(f"OPTI {opti.l} * {opti.r}", end="")
-            opti = Število(opti.l.število * opti.r.število)
-            print(f" -> {opti}")
+        elif type(opti.l) in [Število, Niz] and type(opti.r) in [Število, Niz]:
+            print(f"OPTI {opti.l} * {opti.r} -> {opti.l + opti.r}")
+            opti = opti.l * opti.r
 
         elif type(opti.l) == Množenje and type(opti.r) is Število:
             b = opti.r
@@ -199,17 +259,18 @@ class Množenje(Izraz):
 
     def prevedi(self) -> str:
         return (
-            f"{self.l.prevedi()}"
-            f"{self.r.prevedi()}"
-             "MUL\n"
+            self.l.prevedi() +
+            self.r.prevedi() +
+            "MUL\n"
         )
 
 class Deljenje(Izraz):
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "/\n"
-        drev += self.l.drevo(globina + 1)
-        drev += self.r.drevo(globina + 1)
-        return drev
+        return (
+            globina * "  " + "/\n" +
+            self.l.drevo(globina + 1) +
+            self.r.drevo(globina + 1)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Deljenje(self.l.optimiziran(), self.r.optimiziran())
@@ -256,17 +317,18 @@ class Deljenje(Izraz):
 
     def prevedi(self) -> str:
         return (
-            f"{self.l.prevedi()}"
-            f"{self.r.prevedi()}"
-             "DIV\n"
+            self.l.prevedi() +
+            self.r.prevedi() +
+            "DIV\n"
         )
 
 class Modulo(Izraz):
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "%\n"
-        drev += self.l.drevo(globina + 1)
-        drev += self.r.drevo(globina + 1)
-        return drev
+        return (
+            globina * "  " + "%\n" +
+            self.l.drevo(globina + 1) +
+            self.r.drevo(globina + 1)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Modulo(self.l.optimiziran(), self.r.optimiziran())
@@ -302,17 +364,23 @@ class Modulo(Izraz):
 
     def prevedi(self) -> str:
         return (
-            f"{self.l.prevedi()}"
-            f"{self.r.prevedi()}"
-             "MOD\n"
+            self.l.prevedi() +
+            self.r.prevedi() +
+            "MOD\n"
         )
 
 class Seštevanje(Izraz):
+    def __init__(self, l: TIzraz, r: TIzraz):
+        super().__init__(l, r)
+        if type(self.l) is Niz and type(self.r) in [Niz, Število]:
+            self = self.l + self.r
+
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "+\n"
-        drev += self.l.drevo(globina + 1)
-        drev += self.r.drevo(globina + 1)
-        return drev
+        return (
+            globina * "  " + "+\n" +
+            self.l.drevo(globina + 1) +
+            self.r.drevo(globina + 1)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Seštevanje(self.l.optimiziran(), self.r.optimiziran())
@@ -320,10 +388,9 @@ class Seštevanje(Izraz):
         if opti.l == opti.r:
             print("OPTI x + x -> 2.0 * x")
             opti = Množenje(Število(2.0), opti.l)
-        elif type(opti.l) is Število and type(opti.r) is Število:
-            print(f"OPTI {opti.l} + {opti.r}", end="")
+        elif type(opti.l) in [Število, Niz] and type(opti.r) in [Število, Niz]:
+            print(f"OPTI {opti.l} + {opti.r} -> {opti.l + opti.r}")
             opti = opti.l + opti.r
-            print(f" -> {opti}")
 
         elif type(opti.l) == Seštevanje and type(opti.r) is Število:
             b = opti.r
@@ -350,17 +417,18 @@ class Seštevanje(Izraz):
 
     def prevedi(self) -> str:
         return (
-            f"{self.l.prevedi()}"
-            f"{self.r.prevedi()}"
-             "ADD\n"
+            self.l.prevedi() +
+            self.r.prevedi() +
+            "ADD\n"
         )
 
 class Odštevanje(Izraz):
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "-\n"
-        drev += self.l.drevo(globina + 1)
-        drev += self.r.drevo(globina + 1)
-        return drev
+        return (
+            globina * "  " + "-\n" +
+            self.l.drevo(globina + 1) +
+            self.r.drevo(globina + 1)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Odštevanje(self.l.optimiziran(), self.r.optimiziran())
@@ -369,9 +437,8 @@ class Odštevanje(Izraz):
             print("OPTI x - x -> 0.0")
             opti = Število(0.0)
         elif type(opti.l) is Število and type(opti.r) is Število:
-            print(f"OPTI {opti.l} - {opti.r}", end="")
+            print(f"OPTI {opti.l} - {opti.r} -> {opti.l - opti.r}")
             opti = opti.l - opti.r
-            print(f" -> {opti}")
 
         elif type(opti.l) == Odštevanje and type(opti.r) is Število:
             b = opti.r
@@ -396,11 +463,11 @@ class Odštevanje(Izraz):
 
         return opti
 
-    def prevedi(self,) -> str:
+    def prevedi(self) -> str:
         return (
-            f"{self.l.prevedi()}"
-            f"{self.r.prevedi()}"
-             "SUB\n"
+            self.l.prevedi() +
+            self.r.prevedi() +
+            "SUB\n"
         )
 
 class Priredba(Vozlišče):
@@ -413,37 +480,53 @@ class Priredba(Vozlišče):
         self.izraz = izraz
         self.nova_spr = nova_spr
 
-    def __eq__(self, __o: object) -> bool:
+    def __len__(self) -> int:
+        return 1 if self.nova_spr else 0
+
+    def __eq__(self, o: object) -> bool:
         return (
-            self.spremenljivka == __o.spremenljivka
-            and self.izraz == __o.izraz
-            and self.nova_spr == __o.nova_spr
+            self.spremenljivka == o.spremenljivka
+            and self.izraz == o.izraz
+            and self.nova_spr == o.nova_spr
         )
 
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + self.spremenljivka.drevo()[:-1] + " =\n"
-        drev += self.izraz.drevo(globina + 1)
-        return drev
+        return (
+            globina * "  " + self.spremenljivka.drevo()[:-1] + " =\n" +
+            self.izraz.drevo(globina + 1)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Priredba(self.spremenljivka, self.izraz.optimiziran(), self.nova_spr)
         return opti
 
     def prevedi(self) -> str:
-        stavki = self.izraz.prevedi()
-        if not self.nova_spr:
-            stavki += (
-                f"MOV @{self.spremenljivka.naslov}\n"
-                 "POP\n"
-            )
-        return stavki
+        return self.izraz.prevedi() + (
+            (
+                f"MOV @{self.spremenljivka.naslov}\n" +
+                "POP\n"
+            ) if not self.nova_spr 
+            else ""
+        )
 
 class Zaporedje(Izraz):
-    def drevo(self, globina: int = 0):
-        drev  = self.l.drevo(globina)
-        drev += globina * "  " + ";\n"
-        drev += self.r.drevo(globina)
-        return drev
+    def __len__(self) -> int:
+        return len(self.l) + len(self.r)
+
+    def drevo(self, globina: int = 0, reverse = False):
+        return (
+            self.r.drevo(globina) +
+            globina * "  " + ",\n" + (
+                self.l.drevo(globina, reverse)
+                    if type(self.l) is Zaporedje 
+                    else self.l.drevo(globina)
+            )
+
+        ) if reverse else (
+            self.l.drevo(globina) +
+            globina * "  " + ",\n" +
+            self.r.drevo(globina)
+        )
 
     def optimiziran(self) -> TIzraz:
         opti = Zaporedje(self.l.optimiziran(), self.r.optimiziran())
@@ -451,50 +534,54 @@ class Zaporedje(Izraz):
 
     def prevedi(self) -> str:
         return (
-            f"{self.l.prevedi()}"
-            f"{self.r.prevedi()}"
+            self.l.prevedi() +
+            self.r.prevedi()
         )
 
 class Okvir(Vozlišče):
     zaporedje: Zaporedje
-    st_spr: int
 
-    def __init__(self, zaporedje: Zaporedje, st_spr: int):
+    def __init__(self, zaporedje: Zaporedje):
         self.zaporedje = zaporedje
-        self.st_spr = st_spr
 
-    def __eq__(self, __o: object) -> bool:
-        return type(__o) is Okvir and self.zaporedje == __o.zaporedje
+    def __len__(self) -> int:
+        return len(self.zaporedje)
+
+    def __eq__(self, o: object) -> bool:
+        return type(o) is Okvir and self.zaporedje == o.zaporedje
 
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "{\n"
-        drev += self.zaporedje.drevo(globina+1)
-        drev += globina * "  " + "}\n"
-        return drev
+        return (
+            globina * "  " + "{\n" +
+            self.zaporedje.drevo(globina+1) +
+            globina * "  " + "}\n"
+        )
 
     def optimiziran(self) -> TVozlišče:
-        return Okvir(self.zaporedje.optimiziran(), self.st_spr)
+        return Okvir(self.zaporedje.optimiziran())
 
     def prevedi(self) -> str:
-        ukazi = self.zaporedje.prevedi()
-        ukazi += "POP\n" * self.st_spr
-        return ukazi
+        return (
+            self.zaporedje.prevedi() +
+            "POP\n" * len(self.zaporedje)
+        )
 
 class FunkcijskiKlic(Vozlišče):
     ime: str
-    argumenti: list[Izraz]
+    argumenti: Zaporedje
     okvir: Okvir
 
-    def __init__(self, ime: str, argumenti: list[Izraz], ukazi: Vozlišče):
+    def __init__(self, ime: str, argumenti: Zaporedje, ukazi: Vozlišče):
         self.ime = ime
         self.argumenti = argumenti
         self.okvir = ukazi
 
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "{\n"
-        drev += self.zaporedje.drevo(globina+1)
-        drev += globina * "  " + "}\n"
-        return drev
+        return (
+            globina * "  " + "{\n" +
+            self.zaporedje.drevo(globina+1) +
+            globina * "  " + "}\n"
+        )
 
     def optimiziran(self) -> TVozlišče:
         return FunkcijskiKlic(
@@ -504,35 +591,40 @@ class FunkcijskiKlic(Vozlišče):
         )
 
     def prevedi(self) -> str:
-        ukazi = ""
-        for argument in self.argumenti:
-            ukazi += argument.prevedi()
-        ukazi += self.ukaz + '\n'
-        ukazi += "POP\n" * len(self.argumenti)
-
-        return ukazi
+        return (
+            self.argumenti.prevedi() +
+            self.ukaz + '\n' +
+            "POP\n" * len(self.argumenti)
+        )
 
 class Print(Vozlišče):
     izrazi: Zaporedje
-    st_ukazov: int
 
     def __init__(self, izrazi: Zaporedje, st_ukazov: int):
         self.izrazi = izrazi
         self.st_ukazov = st_ukazov
 
-    def __eq__(self, __o: object) -> bool:
-        return type(__o) is Print and self.izrazi == __o.izrazi
+    def __len__(self) -> int:
+        return 0
+
+    def __eq__(self, o: object) -> bool:
+        return type(o) is Print and self.izrazi == o.izrazi
 
     def drevo(self, globina: int = 0):
-        drev  = globina * "  " + "print(\n"
-        drev += self.izrazi.drevo(globina + 1)
-        drev += globina * "  " + ")\n"
-        return drev
+        return (
+            globina * "  " + "print(\n" + (
+                self.izrazi.drevo(globina + 1, True)
+                    if type(self.izrazi) is Zaporedje 
+                    else self.izrazi.drevo(globina + 1)
+            ) +
+            globina * "  " + ")\n"
+        )
 
     def optimiziran(self) -> TVozlišče:
         return Print(self.izrazi.optimiziran(), self.st_ukazov)
 
     def prevedi(self) -> str:
-        ukazi  = self.izrazi.prevedi()
-        ukazi += "PRINT\nPOP\n" * self.st_ukazov
-        return ukazi
+        return (
+            self.izrazi.prevedi() +
+            "PRINT\n" * len(self.izrazi)
+        )
