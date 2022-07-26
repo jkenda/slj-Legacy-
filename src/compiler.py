@@ -77,7 +77,7 @@ def zaporedje(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[st
 
 	return Zaporedje(zaporedje(izraz[:i_locila], naslovi_staršev, naslovi_spr), stavek(zadnji_stavek, naslovi_staršev, naslovi_spr))
 
-def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Priredba:
+def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Prirejanje:
 	operator: Izraz = None
 	razdeljen = ""
 
@@ -101,7 +101,7 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 		operator  = Potenca
 	elif izraz.startswith("natisni(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("natisni(") : -len(")")]
-		return Natisni(*argumenti(notranji_izraz, naslovi_spr))
+		return Natisni(argumenti(notranji_izraz, naslovi_spr))
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -128,7 +128,7 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 			if (operator != None): 
 				drev = operator(Spremenljivka(ime, naslovi_spr[ime]), drev)
 
-			return Priredba(Spremenljivka(ime, naslovi_spr[ime]), drev, nova_spr)
+			return Prirejanje(Spremenljivka(ime, naslovi_spr[ime]), drev, nova_spr)
 		else:
 			raise Exception(f"'{ime}' je konstanta.")
 	else:
@@ -209,22 +209,20 @@ def osnovni(izraz: str, naslovi_spr: dict[str, int]) -> float:
 		else:
 			raise Exception(f"'{izraz}' ni definiran.")
 
-def argumenti(izraz: str, naslovi_spr: dict[str, int]) -> tuple:
+def argumenti(izraz: str, naslovi_spr: dict[str, int]) -> Zaporedje:
 	if len(izraz) == 0:
 		return Prazno()
 
 	i_vejice = poišči(izraz, ',')
-
-	vozlišče: Vozlišče
 	argument = izraz[i_vejice+1:].strip()
 
-	vozlišče = drevo(argument, naslovi_spr)
-
 	if i_vejice == -1:
-		return (vozlišče, 1)
+		return drevo(argument, naslovi_spr)
 
-	zap, st_arg = argumenti(izraz[:i_vejice], naslovi_spr)
-	return (Zaporedje(vozlišče, zap), st_arg + 1)
+	return Zaporedje(
+		drevo(argument, naslovi_spr),
+		argumenti(izraz[:i_vejice], naslovi_spr)
+	)
 
 
 def predprocesiran(izraz: str) -> str:
