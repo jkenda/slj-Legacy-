@@ -12,7 +12,7 @@ class Vozlišče(ABC):
         pass
 
     @abstractmethod
-    def optimiziran(self) -> TVozlišče:
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
         pass
 
     @abstractmethod
@@ -43,7 +43,7 @@ class Prazno(Vozlišče):
     def drevo(self, globina: int = 0):
         return globina * "  " + "()\n"
 
-    def optimiziran(self) -> TVozlišče:
+    def optimiziran(self, _: int = 0) -> TVozlišče:
         return Prazno()
 
     def prevedi(self) -> str:
@@ -80,7 +80,7 @@ class Niz(Vozlišče):
     def drevo(self, globina: int = 0):
         return globina * "  " + f'"{self}"\n'
 
-    def optimiziran(self) -> TVozlišče:
+    def optimiziran(self, _: int = 0) -> TVozlišče:
         return Niz(self.niz)
 
     def prevedi(self) -> str:
@@ -149,7 +149,7 @@ class Število(Vozlišče):
     def drevo(self, globina: int = 0):
         return globina * "  " + str(self.število) + '\n'
 
-    def optimiziran(self) -> TVozlišče:
+    def optimiziran(self, _: int = 0) -> TVozlišče:
         return Število(self.število)
 
     def prevedi(self) -> str:
@@ -179,7 +179,7 @@ class Spremenljivka(Vozlišče):
     def drevo(self, globina: int = 0):
         return globina * "  " + f"{self.ime} @{self.naslov}\n"
 
-    def optimiziran(self) -> TVozlišče:
+    def optimiziran(self, _: int = 0) -> TVozlišče:
         return Spremenljivka(self.ime, self.naslov)
 
     def prevedi(self) -> str:
@@ -193,12 +193,14 @@ class Potenca(Izraz):
             self.r.drevo(globina + 1)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Potenca(self.l.optimiziran(), self.r.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Potenca(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
 
         if type(opti.l) is Število and type(opti.r) is Število:
             print(f"OPTI {opti.l} ^ {opti.r} -> {opti.l ** opti.r}")
-            opti = opti.l ** opti.r
+            return opti.l ** opti.r
 
         return opti
 
@@ -210,13 +212,6 @@ class Potenca(Izraz):
         )
 
 class Množenje(Izraz):
-    def __init__(self, l: TIzraz, r: TIzraz):
-        super().__init__(l, r)
-        if type(self.l) is Niz and type(self.r) is Število:
-            self = self.l + self.r
-        elif type(self.l) is Število and type(self.r) is Niz:
-            self = self.l + self.r
-
     def drevo(self, globina: int = 0):
         return (
             globina * "  " + "*\n" +
@@ -224,36 +219,47 @@ class Množenje(Izraz):
             self.r.drevo(globina + 1)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Množenje(self.l.optimiziran(), self.r.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Množenje(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if type(opti.l) is Niz and type(opti.r) is Število:
+            print(f'MAKE "{opti.l}" * {opti.r} -> "{opti.l * opti.r}"')
+            return opti.l * opti.r
+        elif type(opti.l) is Število and type(opti.r) is Niz:
+            print(f'MAKE {opti.l} * "{opti.r}" -> "{opti.l * opti.r}"')
+            return opti.l * opti.r
+
+        if nivo == 0: return opti
 
         if opti.l == opti.r:
             print("OPTI x * x -> x^2")
-            opti = Potenca(opti.l, Število(2.0))
+            return Potenca(opti.l, Število(2.0))
         elif type(opti.l) in [Število, Niz] and type(opti.r) in [Število, Niz]:
             print(f"OPTI {opti.l} * {opti.r} -> {opti.l + opti.r}")
-            opti = opti.l * opti.r
+            return opti.l * opti.r
 
-        elif type(opti.l) == Množenje and type(opti.r) is Število:
+        if nivo == 1: return opti
+
+        if type(opti.l) == Množenje and type(opti.r) is Število:
             b = opti.r
             if type(opti.l.l) is Število:
                 a = opti.l.l; x = opti.l.r
                 print(f"OPTI ({a} * x) * {b} -> {a * b} * x")
-                opti = Množenje(a * b, x)
+                return Množenje(a * b, x)
             elif type(opti.l.r) is Število:
                 x = opti.l.l; a = opti.l.r
                 print(f"OPTI (x * {a}) * {b} -> x * {a * b}")
-                opti = Množenje(x, a * b)
+                return Množenje(x, a * b)
         elif type(opti.l) is Število and type(opti.r) == Množenje:
             a = opti.l
             if type(opti.r.l) is Število:
                 b = opti.r.l; x = opti.r.r
                 print(f"OPTI {a} * ({b} * x) -> {a * b} * x")
-                opti = Množenje(x, b * a)
+                return Množenje(x, b * a)
             elif type(opti.r.r) is Število:
                 x = opti.r.l; b = opti.r.r
                 print(f"OPTI {a} * (x * {b}) -> x * {a * b}")
-                opti = Množenje(a * b, x)
+                return Množenje(a * b, x)
 
         return opti
 
@@ -272,46 +278,50 @@ class Deljenje(Izraz):
             self.r.drevo(globina + 1)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Deljenje(self.l.optimiziran(), self.r.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Deljenje(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
 
         if opti.l == opti.r:
             print("OPTI x / x -> 1.0")
-            opti = Število(1.0)
+            return Število(1.0)
         elif type(opti.l) is Število and type(opti.r) is Število:
             if opti.l.število == 0.0:
                 print(f"OPTI {opti.l} / {opti.r} -> 0.0")
-                opti = Število(0.0)
+                return Število(0.0)
             elif opti.r.število == 0.0:
                 if opti.l.število > 0.0:
                     print(f"OPTI {opti.l} / {opti.r} -> inf")
-                    opti = Število(float("inf"))
+                    return Število(float("inf"))
                 else:
                     print(f"OPTI {opti.l} / {opti.r} -> -inf")
-                    opti = Število(float("-inf"))
+                    return Število(float("-inf"))
             else:
-                opti = opti.l / opti.r
+                return opti.l / opti.r
 
-        elif type(opti.l) == Deljenje and type(opti.r) is Število:
+        if nivo == 1: return opti
+
+        if type(opti.l) == Deljenje and type(opti.r) is Število:
             b = opti.r
             if type(opti.l.l) is Število:
                 a = opti.l.l; x = opti.l.r
                 print(f"OPTI ({a} / x) / {b} -> {a / b} / x")
-                opti = Deljenje(a / b, x)
+                return Deljenje(a / b, x)
             elif type(opti.l.r) is Število:
                 x = opti.l.l; a = opti.l.r
                 print(f"OPTI (x / {a}) / {b} -> x / {a * b}")
-                opti = Deljenje(x, a * b)
+                return Deljenje(x, a * b)
         elif type(opti.l) is Število and type(opti.r) == Deljenje:
             a = opti.l
             if type(opti.r.l) is Število:
                 b = opti.r.l; x = opti.r.r
                 print(f"OPTI {a} / ({b} / x) -> {a / b} * x")
-                opti = Množenje(a / b, x)
+                return Množenje(a / b, x)
             elif type(opti.r.r) is Število:
                 x = opti.r.l; b = opti.r.r
                 print(f"OPTI {a} / (x / {b}) -> {a * b} / x")
-                opti = Deljenje(a * b, x)
+                return Deljenje(a * b, x)
 
         return opti
 
@@ -330,21 +340,25 @@ class Modulo(Izraz):
             self.r.drevo(globina + 1)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Modulo(self.l.optimiziran(), self.r.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Modulo(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
 
         if opti.l == opti.r:
             print("OPTI x % x -> 1.0")
-            opti = Število(1.0)
+            return Število(1.0)
         elif type(opti.l) is Število and type(opti.r) is Število:
             print(f"OPTI {opti.l} % {opti.r} -> {opti.l % opti.r}")
-            opti = opti.l % opti.r
-            
-        elif type(opti.l) is Modulo and type(opti.r) is Število:
+            return opti.l % opti.r
+
+        if nivo == 1: return opti
+
+        if type(opti.l) is Modulo and type(opti.r) is Število:
             if type(opti.l.r) is Število and opti.l.r == opti.r:
                 n = opti.r
                 print(f"OPTI (x % {n}) % {n} -> x % {n}")
-                opti = Modulo(opti.l.l, opti.r)
+                return Modulo(opti.l.l, opti.r)
         elif type(opti.r) is Število:
             n = opti.r
             if type(opti.l) is Seštevanje:
@@ -352,13 +366,13 @@ class Modulo(Izraz):
                     if opti.l.l.r == opti.l.r.r == opti.r:
                         x = opti.l.l.l; y = opti.l.r.l; n = opti.r
                         print(f"OPTI ((x % {n}) + (y % {n})) % {n} -> (x + y) % {n}")
-                        opti = Modulo(Seštevanje(x, y), n)
+                        return Modulo(Seštevanje(x, y), n)
             elif type(opti.l) is Množenje:
                 if type(opti.l.l) is Modulo and type(opti.l.r) is Modulo:
                     if opti.l.l.r == opti.l.r.r == opti.r:
                         x = opti.l.l.l; y = opti.l.r.l; n = opti.r
                         print(f"OPTI ((x % {n}) * (y % {n})) % {n} -> (x * y) % {n}")
-                        opti = Modulo(Množenje(x, y), n)
+                        return Modulo(Množenje(x, y), n)
 
         return opti
 
@@ -370,11 +384,6 @@ class Modulo(Izraz):
         )
 
 class Seštevanje(Izraz):
-    def __init__(self, l: TIzraz, r: TIzraz):
-        super().__init__(l, r)
-        if type(self.l) is Niz and type(self.r) in [Niz, Število]:
-            self = self.l + self.r
-
     def drevo(self, globina: int = 0):
         return (
             globina * "  " + "+\n" +
@@ -382,36 +391,44 @@ class Seštevanje(Izraz):
             self.r.drevo(globina + 1)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Seštevanje(self.l.optimiziran(), self.r.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Seštevanje(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+        
+        if type(opti.l) is Niz and type(opti.r) in [Niz, Število]:
+            print(f'MAKE "{opti.l}" + "{opti.r}" -> "{opti.l + opti.r}"')
+            return opti.l + opti.r
+
+        if nivo == 0: return opti
 
         if opti.l == opti.r:
             print("OPTI x + x -> 2.0 * x")
-            opti = Množenje(Število(2.0), opti.l)
+            return Množenje(Število(2.0), opti.l)
         elif type(opti.l) in [Število, Niz] and type(opti.r) in [Število, Niz]:
             print(f"OPTI {opti.l} + {opti.r} -> {opti.l + opti.r}")
-            opti = opti.l + opti.r
+            return opti.l + opti.r
 
-        elif type(opti.l) == Seštevanje and type(opti.r) is Število:
+        if nivo == 1: return opti
+
+        if type(opti.l) == Seštevanje and type(opti.r) is Število:
             b = opti.r
             if type(opti.l.l) is Število:
                 a = opti.l.l; x = opti.l.r
                 print(f"OPTI ({a} + x) + {b} -> {a + b} + x")
-                opti = Seštevanje(a + b, x)
+                return Seštevanje(a + b, x)
             elif type(opti.l.r) is Število:
                 x = opti.l.l; a = opti.l.r
                 print(f"OPTI (x + {a}) + {b} -> x + {a + b}")
-                opti = Seštevanje(x, a + b)
-        elif type(opti.l) is Število and type(opti.r) == Seštevanje:
+                return Seštevanje(x, a + b)
+        if type(opti.l) is Število and type(opti.r) == Seštevanje:
             a = opti.l
             if type(opti.r.l) is Število:
                 b = opti.r.l; x = opti.r.r
                 print(f"OPTI {a} + ({b} + x) -> {b + a} + x")
-                opti = Seštevanje(b + a, x)
+                return Seštevanje(b + a, x)
             elif type(opti.r.r) is Število:
                 x = opti.r.l; b = opti.r.r
                 print(f"OPTI {a} + (x + {b}) -> x + {a + b}")
-                opti = Seštevanje(x, a + b)
+                return Seštevanje(x, a + b)
 
         return opti
 
@@ -430,36 +447,40 @@ class Odštevanje(Izraz):
             self.r.drevo(globina + 1)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Odštevanje(self.l.optimiziran(), self.r.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Odštevanje(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
 
         if opti.l == opti.r:
             print("OPTI x - x -> 0.0")
-            opti = Število(0.0)
+            return Število(0.0)
         elif type(opti.l) is Število and type(opti.r) is Število:
             print(f"OPTI {opti.l} - {opti.r} -> {opti.l - opti.r}")
-            opti = opti.l - opti.r
+            return opti.l - opti.r
 
-        elif type(opti.l) == Odštevanje and type(opti.r) is Število:
+        if nivo == 1: return opti
+
+        if type(opti.l) == Odštevanje and type(opti.r) is Število:
             b = opti.r
             if type(opti.l.l) is Število:
                 a = opti.l.l; x = opti.l.r
                 print(f"OPTI ({a} - x) - {b} -> {a - b} - x")
-                opti = Odštevanje(a - b, x)
+                return Odštevanje(a - b, x)
             elif type(opti.l.r) is Število:
                 x = opti.l.l; a = opti.l.r
                 print(f"OPTI (x - {a}) - {b} -> x - {a + b}")
-                opti = Odštevanje(x, a + b)
+                return Odštevanje(x, a + b)
         elif type(opti.l) is Število and type(opti.r) == Odštevanje:
             a = opti.l
             if type(opti.r.l) is Število:
                 b = opti.r.l; x = opti.r.r
                 print(f"OPTI {a} - ({b} - x) -> x - {b - a}")
-                opti = Odštevanje(x, b - a)
+                return Odštevanje(x, b - a)
             elif type(opti.r.r) is Število:
                 x = opti.r.l; b = opti.r.r
                 print(f"OPTI {a} - (x - {b}) -> {a + b} - x")
-                opti = Odštevanje(a + b, x)
+                return Odštevanje(a + b, x)
 
         return opti
 
@@ -496,8 +517,8 @@ class Priredba(Vozlišče):
             self.izraz.drevo(globina + 1)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Priredba(self.spremenljivka, self.izraz.optimiziran(), self.nova_spr)
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Priredba(self.spremenljivka, self.izraz.optimiziran(nivo), self.nova_spr)
         return opti
 
     def prevedi(self) -> str:
@@ -528,8 +549,8 @@ class Zaporedje(Izraz):
             self.r.drevo(globina)
         )
 
-    def optimiziran(self) -> TIzraz:
-        opti = Zaporedje(self.l.optimiziran(), self.r.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TIzraz:
+        opti = Zaporedje(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
         return opti
 
     def prevedi(self) -> str:
@@ -537,6 +558,8 @@ class Zaporedje(Izraz):
             self.l.prevedi() +
             self.r.prevedi()
         )
+
+TOkvir = TypeVar("TOkvir", bound="Okvir")
 
 class Okvir(Vozlišče):
     zaporedje: Zaporedje
@@ -557,8 +580,8 @@ class Okvir(Vozlišče):
             globina * "  " + "}\n"
         )
 
-    def optimiziran(self) -> TVozlišče:
-        return Okvir(self.zaporedje.optimiziran())
+    def optimiziran(self, nivo: int = 0) -> TOkvir:
+        return Okvir(self.zaporedje.optimiziran(nivo))
 
     def prevedi(self) -> str:
         return (
@@ -583,11 +606,11 @@ class FunkcijskiKlic(Vozlišče):
             globina * "  " + "}\n"
         )
 
-    def optimiziran(self) -> TVozlišče:
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
         return FunkcijskiKlic(
             self.ime, 
-            [ arg.optimiziran() for arg in self.argumenti ], 
-            self.okvir.optimiziran()
+            [ arg.optimiziran(nivo) for arg in self.argumenti ], 
+            self.okvir.optimiziran(nivo)
         )
 
     def prevedi(self) -> str:
@@ -597,7 +620,7 @@ class FunkcijskiKlic(Vozlišče):
             "POP\n" * len(self.argumenti)
         )
 
-class Print(Vozlišče):
+class Natisni(Vozlišče):
     izrazi: Zaporedje
 
     def __init__(self, izrazi: Zaporedje, st_ukazov: int):
@@ -608,11 +631,11 @@ class Print(Vozlišče):
         return 0
 
     def __eq__(self, o: object) -> bool:
-        return type(o) is Print and self.izrazi == o.izrazi
+        return type(o) is Natisni and self.izrazi == o.izrazi
 
     def drevo(self, globina: int = 0):
         return (
-            globina * "  " + "print(\n" + (
+            globina * "  " + "natisni(\n" + (
                 self.izrazi.drevo(globina + 1, True)
                     if type(self.izrazi) is Zaporedje 
                     else self.izrazi.drevo(globina + 1)
@@ -620,8 +643,8 @@ class Print(Vozlišče):
             globina * "  " + ")\n"
         )
 
-    def optimiziran(self) -> TVozlišče:
-        return Print(self.izrazi.optimiziran(), self.st_ukazov)
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return Natisni(self.izrazi.optimiziran(nivo), self.st_ukazov)
 
     def prevedi(self) -> str:
         return (

@@ -1,14 +1,15 @@
 #!/usr/bin/python3
 
 from ast import arg
+from curses.ascii import isspace
 from io import TextIOWrapper
 import re
 import sys
 from IzraznoDrevo import *
 
 operatorji = { '+': Seštevanje, '-': Odštevanje, '*': Množenje, '/': Deljenje, '^': Potenca }
-ignore = { '+', '-', '*', '/', '^', ')' }
-var_regex = r"[a-zA-Z_]\w*"
+ignoriraj = { '+', '-', '*', '/', '^', ')' }
+regex_spremenljivk = r"[a-zA-Z_]\w*"
 
 konstante = {
 	"e":   2.7182818284590452354,
@@ -27,56 +28,56 @@ def main(argc: int, argv: list[str]) -> int:
 		optimizacija = int(argv[3])
 
 	with open(argv[1], "r") as file:
-		vsebina = file.read()
-		try:
+#		try:
+			vsebina = file.read()
 			korenski_okvir = okvir(vsebina, dict())
-		except Exception as e:
-			print(e)
-			return 2
+#		except Exception as e:
+#			print(e)
+#			return 2
 
 	print(korenski_okvir.drevo())
 
-	vrstic_neoptimizirano = len(korenski_okvir.prevedi().split('\n'))
+	št_vrstic_neoptimizirano = len(korenski_okvir.prevedi().split('\n'))
 	
-	prehod = 1
-	while True and optimizacija > 0:
-		print(f"PASS {prehod}:")
-		optimiziran = korenski_okvir.optimiziran()
-		if optimiziran == korenski_okvir:
-			break
-		korenski_okvir = optimiziran
-		prehod += 1
-	print("/\n")
+	for nivo in range(optimizacija+1):
+		print(f"NIVO {nivo}:")
+		optimiziran = korenski_okvir.optimiziran(nivo)
+		if optimiziran != korenski_okvir:
+			korenski_okvir = optimiziran
+		else:
+			print("/")
+		print()
 
 	if optimizacija > 0:
 		print(korenski_okvir.drevo())
 
 	assembler = korenski_okvir.prevedi()
-	razmerje = len(assembler.split('\n')) / vrstic_neoptimizirano
-	print("optimizirano / neoptimizirano:", round(razmerje*100), "%")
+	razmerje = len(assembler.split('\n')) / št_vrstic_neoptimizirano
+	print("optimizirano / neoptimizirano:", round(razmerje * 100), "%")
 
 	with open(argv[2], "w") as file:
 		file.write(assembler)
 
-def okvir(tekst: str, naslovi_staršev: dict[str, int]) -> Okvir:
-	vrstice = filter(lambda v : v and not v.isspace(), tekst.split('\n'))
-	vrstice = list(map(lambda v : v.split('#')[0].strip(), vrstice))
-
+def okvir(izraz: str, naslovi_staršev: dict[str, int]) -> Okvir:
 	naslovi_spr = dict()
-	zap = zaporedje(vrstice, naslovi_staršev, naslovi_spr)
+	zap = zaporedje(izraz, naslovi_staršev, naslovi_spr)
 	return Okvir(zap)
 
-def zaporedje(vrstice: list[str], naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Zaporedje:
-	if len(vrstice) == 0:
+def zaporedje(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Zaporedje:
+	izraz = izraz.strip()
+	if not izraz or izraz.isspace():
 		return Prazno()
-	if len(vrstice) == 1:
-		return priredba(vrstice[0], naslovi_staršev, naslovi_spr)
-	if len(vrstice) == 2:
-		return Zaporedje(priredba(vrstice[0], naslovi_staršev, naslovi_spr), priredba(vrstice[1], naslovi_staršev, naslovi_spr))
 
-	return Zaporedje(zaporedje(vrstice[:-1], naslovi_staršev, naslovi_spr), priredba(vrstice[-1], naslovi_staršev, naslovi_spr))
+	i_locila = max(poišči(izraz, '\n'), poišči(izraz, ';'))
 
-def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Priredba:
+	zadnji_stavek = izraz[i_locila+1:].split('#')[0].strip()
+
+	if i_locila == -1:
+		return stavek(zadnji_stavek, naslovi_staršev, naslovi_spr)
+
+	return Zaporedje(zaporedje(izraz[:i_locila], naslovi_staršev, naslovi_spr), stavek(zadnji_stavek, naslovi_staršev, naslovi_spr))
+
+def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Priredba:
 	operator: Izraz = None
 	razdeljen = ""
 
@@ -98,9 +99,9 @@ def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str
 	elif izraz.rfind("^=") != -1:
 		razdeljen = izraz.split("^=")
 		operator  = Potenca
-	elif izraz.startswith("print(") and izraz.endswith(")"):
-		notranji_izraz = izraz[len("print(") : -len(")")]
-		return Print(*argumenti(notranji_izraz, naslovi_spr))
+	elif izraz.startswith("natisni(") and izraz.endswith(")"):
+		notranji_izraz = izraz[len("natisni(") : -len(")")]
+		return Natisni(*argumenti(notranji_izraz, naslovi_spr))
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -111,7 +112,7 @@ def priredba(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str
 	razdeljen[0] = razdeljen[0].strip()
 	razdeljen[1] = razdeljen[1].strip()
 
-	if re.fullmatch(var_regex, razdeljen[0]):
+	if re.fullmatch(regex_spremenljivk, razdeljen[0]):
 		ime = razdeljen[0]
 
 		if ime not in konstante:

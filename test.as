@@ -1,4 +1,6 @@
-PUSH #9.0
+PUSH #3.0
+PUSH #2.0
+POW
 PUSH @0
 PUSH #1.0
 PUSH @0
