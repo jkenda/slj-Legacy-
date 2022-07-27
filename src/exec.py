@@ -3,7 +3,8 @@
 from operator import add, sub, mul, truediv, mod
 import sys
 
-ukazi = { "ADD": add, "SUB": sub, "MUL": mul, "DIV": truediv, "MOD": mod, "POW": pow }
+UKAZI = { "ADD": add, "SUB": sub, "MUL": mul, "DIV": truediv, "MOD": mod, "POW": pow }
+RESNICA = 1.0; LAŽ = 0.0
 
 def main(argc: int, argv: list[str]) -> int:
     if argc not in [2, 3]:
@@ -24,6 +25,8 @@ def main(argc: int, argv: list[str]) -> int:
                 # prazna vrstica
                 pc += 1
                 continue
+            
+            if print_stack: print(lines[pc] + ": ", end="")
 
             ukaz = lines[pc].strip().split(' ')[0]
 
@@ -35,10 +38,32 @@ def main(argc: int, argv: list[str]) -> int:
                 ostanek = lines[pc][len(ukaz)+1:]
                 tip = ostanek[0]
                 if tip == '#':
-                    pc = ostanek[1:] - 1
-                elif tip == '@':
-                    pc = stack[ostanek[1:]] - 1
-            if ukaz == "PUSH":
+                    pc = int(ostanek[1:]) - 1
+                elif tip == '+':
+                    pc += int(ostanek[1:]) - 1
+                elif tip == '-':
+                    pc -= int(ostanek[1:]) + 1
+            elif ukaz == "IF":
+                ostanek = lines[pc][len(ukaz)+1:]
+                tip = ostanek[0]
+                if tip == '#':
+                    if stack[-1] == RESNICA:
+                        pc = int(ostanek[1:]) - 1
+                    stack.pop()
+                elif tip == '+':
+                    if stack[-1] == RESNICA:
+                        pc += int(ostanek[1:]) - 1
+                    stack.pop()
+                elif tip == '-':
+                    if stack[-1] == RESNICA:
+                        pc -= int(ostanek[1:]) + 1
+                    stack.pop()
+            elif ukaz == "POS":
+                stack[-1] = RESNICA if stack[-1] > 0 else LAŽ
+            elif ukaz == "ZERO":
+                stack[-1] = RESNICA if stack[-1] == 0 else LAŽ
+            
+            elif ukaz == "PUSH":
                 ostanek = lines[pc][len(ukaz)+1:]
                 tip = ostanek[0]
                 if tip == '@':
@@ -64,13 +89,13 @@ def main(argc: int, argv: list[str]) -> int:
                 if not print_stack: print(str(stack[-1]), end="")
                 stack.pop()
             else:
-                stack[-2] = ukazi[ukaz](stack[-2], stack[-1])
+                stack[-2] = UKAZI[ukaz](stack[-2], stack[-1])
                 stack.pop()
 
-            if print_stack: print(lines[pc] + ":", stack)
+            if print_stack: print(stack)
 
             pc += 1
-            if len(stack) == 0:
+            if pc == len(lines):
                 break
 
 if __name__ == "__main__":

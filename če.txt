@@ -1,0 +1,7 @@
+x = 1; y = 2
+
+če x < y {
+    natisni(x - y)
+} čene {
+    natisni(y - x)
+}

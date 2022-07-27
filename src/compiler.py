@@ -7,9 +7,24 @@ import re
 import sys
 from IzraznoDrevo import *
 
-operatorji = { '+': Seštevanje, '-': Odštevanje, '*': Množenje, '/': Deljenje, '^': Potenca }
-ignoriraj = { '+', '-', '*', '/', '^', ')' }
-regex_spremenljivk = r"[a-zA-Z_]\w*"
+REGEX_SPR = r"[a-zA-Z_]\w*"
+REZERVIRANE_BESEDE = { "natisni", "resnica", "laž", "če", "čene" }
+
+ŠTEVILSKI = { 
+	'+': Seštevanje, 
+	'-': Odštevanje, 
+	'*': Množenje, 
+	'/': Deljenje, 
+	'^': Potenca 
+}
+
+PRIMERJALNI = {
+	'==': Enako,
+	'>' : Večje,
+	'>=': VečjeEnako,
+	'<' : Manjše,
+	'<=': ManjšeEnako,
+}
 
 konstante = {
 	"e":   2.7182818284590452354,
@@ -37,9 +52,9 @@ def main(argc: int, argv: list[str]) -> int:
 
 	print(korenski_okvir.drevo())
 
-	št_vrstic_neoptimizirano = len(korenski_okvir.prevedi().split('\n'))
+	št_vrstic_neoptimizirano = len(korenski_okvir.optimiziran(0).prevedi().split('\n'))
 	
-	for nivo in range(optimizacija+1):
+	for nivo in range(1, optimizacija+1):
 		print(f"NIVO {nivo}:")
 		optimiziran = korenski_okvir.optimiziran(nivo)
 		if optimiziran != korenski_okvir:
@@ -112,7 +127,7 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 	razdeljen[0] = razdeljen[0].strip()
 	razdeljen[1] = razdeljen[1].strip()
 
-	if re.fullmatch(regex_spremenljivk, razdeljen[0]):
+	if re.fullmatch(REGEX_SPR, razdeljen[0]):
 		ime = razdeljen[0]
 
 		if ime not in konstante:
@@ -136,7 +151,47 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 
 
 def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
-	return aditivni(predprocesiran(izraz), naslovi_spr)
+	return disjunktivni(izraz, naslovi_spr)
+
+def disjunktivni(izraz: str, naslovi_spr: dict[str, int]) -> Disjunkcija:
+	lokacija = poišči(izraz, '|')
+
+	if lokacija == -1:
+		return konjunktivni(izraz, naslovi_spr)
+
+	return Disjunkcija(
+		disjunktivni(izraz[:lokacija], naslovi_spr), 
+		konjunktivni(izraz[lokacija+1:], naslovi_spr)
+	)
+
+def konjunktivni(izraz: str, naslovi_spr: dict[str, int]) -> Konjunkcija:
+	lokacija = poišči(izraz, '&')
+
+	if lokacija == -1:
+		return primerjalni(izraz, naslovi_spr)
+
+	return Konjunkcija(
+		konjunktivni(izraz[:lokacija], naslovi_spr), 
+		primerjalni(izraz[lokacija+1:], naslovi_spr)
+	)
+
+def primerjalni(izraz: str, naslovi_spr: dict[str, int]) -> Večje | Enako | Disjunkcija:
+	operatorji = list(PRIMERJALNI.keys())
+	lokacije = [ poišči(izraz, op) for op in operatorji ]
+
+	# poišči lokacijo zadnjega operatorja
+	lokacija = max(lokacije)
+
+	if lokacija == -1:
+		return aditivni(izraz, naslovi_spr)
+
+	operator = operatorji[lokacije.index(lokacija)]
+	print(operator, len(operator), izraz[lokacija+len(operator):])
+
+	return PRIMERJALNI[operator](
+		konjunktivni(izraz[:lokacija], naslovi_spr), 
+		aditivni(izraz[lokacija+len(operator):], naslovi_spr)
+	)
 
 def aditivni(izraz: str, naslovi_spr: dict[str, int]) -> Seštevanje:
 	plus  = poišči(izraz, '+')
@@ -154,9 +209,9 @@ def aditivni(izraz: str, naslovi_spr: dict[str, int]) -> Seštevanje:
 		if minus == 0:
 			# negacija na začetku izraza
 			return multiplikativni(izraz, naslovi_spr)
-		elif izraz[minus-1] in operatorji:
+		elif izraz[minus-1] in ŠTEVILSKI:
 			# negacija
-			return operatorji[izraz[minus-1]](
+			return ŠTEVILSKI[izraz[minus-1]](
 				aditivni(izraz[:minus-1], naslovi_spr), 
 				multiplikativni(izraz[minus:], naslovi_spr)
 			)
@@ -192,10 +247,19 @@ def potenčni(izraz: str, naslovi_spr: dict[str, int]) -> Potenca:
 	return Potenca(potenčni(izraz[:na], naslovi_spr), potenčni(izraz[na+1:], naslovi_spr))
 
 def osnovni(izraz: str, naslovi_spr: dict[str, int]) -> float:
+	izraz = izraz.strip()
+
 	if len(izraz) == 0:
 		return Prazno()
+	if izraz == "resnica":
+		return Resnica()
+	if izraz == "laž":
+		return Laž()
+	
+	if izraz.startswith("!"):
+		return Zanikaj(drevo(izraz[1:], naslovi_spr))
 	if izraz.startswith("(") and izraz.endswith(")"):
-		return aditivni(izraz[1:-1], naslovi_spr)
+		return drevo(izraz[1:-1], naslovi_spr)
 	if izraz.startswith('"') and izraz.endswith('"'):
 		return Niz(izraz[1:-1])
 
@@ -274,9 +338,17 @@ def poišči(izraz: str, niz: str) -> int:
 		elif izraz[i] == '"':
 			znotraj_navedic = not znotraj_navedic
 
+		# iskani niz ni znotraj oklepajev
 		if oklepajev == 0 and not znotraj_navedic and izraz[i:].startswith(niz):
-			# iskani znak ni znotraj oklepajev
-			return i
+			if i in [0, len(izraz)-1]:
+				return i
+			cl = izraz[i-1]; cr = izraz[i+len(niz)]
+			if (
+				(cl.isspace() or cl.isalnum() or cl in ['(', ')', '"']) and
+				(cr.isspace() or cr.isalnum() or cr in ['(', ')', '"'])
+			):
+				return i
+
 		i -= 1
 
 	if oklepajev != 0:

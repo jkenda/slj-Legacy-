@@ -8,7 +8,7 @@ TIzraz = TypeVar("TIzraz", bound="Izraz")
 class Vozlišče(ABC):
 
     @abstractmethod
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         pass
 
     @abstractmethod
@@ -17,6 +17,10 @@ class Vozlišče(ABC):
 
     @abstractmethod
     def prevedi(self) -> str:
+        pass
+
+    @abstractmethod
+    def __len__(self) -> int:
         pass
 
 class Izraz(Vozlišče):
@@ -37,11 +41,14 @@ class Prazno(Vozlišče):
     def __len__(self) -> int:
         return 0
 
+    def __str__(self) -> str:
+        return "()"
+
     def __eq__(self, o: object) -> bool:
         return type(o) is Prazno
 
-    def drevo(self, globina: int = 0):
-        return globina * "  " + "()\n"
+    def drevo(self, globina: int = 0) -> str:
+        return globina * "  " + f"{self}\n"
 
     def optimiziran(self, _: int = 0) -> TVozlišče:
         return Prazno()
@@ -78,7 +85,7 @@ class Niz(Vozlišče):
     def __mul__(self, o: object):
         return Niz(self.niz * int(o))
 
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return globina * "  " + f'"{self}"\n'
 
     def optimiziran(self, _: int = 0) -> TVozlišče:
@@ -124,8 +131,14 @@ class Število(Vozlišče):
     def __int__(self) -> int:
         return int(self.število)
 
-    def __eq__(self, o: bool) -> bool:
-        return type(self) is type(o) and self.število == o.število
+    def __eq__(self, o: object) -> bool:
+        return type(o) is Število and self.število == o.število
+
+    def __gt__(self, o: object) -> bool:
+        return type(o) == Število and self.število > o.število
+
+    def __lt__(self, o: object) -> bool:
+        return type(o) == Število and self.število < o.število
 
     def __add__(self, o: object):
         if type(o) == Niz:
@@ -147,7 +160,7 @@ class Število(Vozlišče):
     def __mod__(self, o: object):
         return Število(self.število % float(o))
 
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return globina * "  " + str(self.število) + '\n'
 
     def optimiziran(self, _: int = 0) -> TVozlišče:
@@ -177,7 +190,7 @@ class Spremenljivka(Vozlišče):
             and self.naslov == o.naslov
         )
 
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return globina * "  " + f"{self}\n"
 
     def optimiziran(self, _: int = 0) -> TVozlišče:
@@ -186,8 +199,46 @@ class Spremenljivka(Vozlišče):
     def prevedi(self) -> str:
         return f"PUSH @{self.naslov}\n"
 
+class Resnica(Vozlišče):
+    def __eq__(self, __o: object) -> bool:
+        return type(__o) is Resnica
+
+    def __len__(self) -> int:
+        return 1
+
+    def __str__(self) -> str:
+        return "resnica"
+
+    def drevo(self, globina: int = 0) -> str:
+        return globina * "  " + "resnica\n"
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return Resnica()
+
+    def prevedi(self) -> str:
+        return Število(1).prevedi()
+
+class Laž(Vozlišče):
+    def __eq__(self, __o: object) -> bool:
+        return type(__o) is Laž
+
+    def __len__(self) -> int:
+        return 1
+
+    def __str__(self) -> str:
+        return "laž"
+
+    def drevo(self, globina: int = 0) -> str:
+        return globina * "  " + "laž\n"
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return Laž()
+
+    def prevedi(self) -> str:
+        return Število(0).prevedi()
+
 class Seštevanje(Izraz):
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "+\n" +
             self.l.drevo(globina + 1) +
@@ -243,7 +294,7 @@ class Seštevanje(Izraz):
         )
 
 class Odštevanje(Izraz):
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "-\n" +
             self.l.drevo(globina + 1) +
@@ -295,7 +346,7 @@ class Odštevanje(Izraz):
         )
 
 class Množenje(Izraz):
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "*\n" +
             self.l.drevo(globina + 1) +
@@ -354,7 +405,7 @@ class Množenje(Izraz):
         )
 
 class Deljenje(Izraz):
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "/\n" +
             self.l.drevo(globina + 1) +
@@ -416,7 +467,7 @@ class Deljenje(Izraz):
         )
 
 class Modulo(Izraz):
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "%\n" +
             self.l.drevo(globina + 1) +
@@ -467,7 +518,7 @@ class Modulo(Izraz):
         )
 
 class Potenca(Izraz):
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "^\n" +
             self.l.drevo(globina + 1) +
@@ -492,6 +543,289 @@ class Potenca(Izraz):
             "POW\n"
         )
 
+class Zanikaj(Vozlišče):
+    vozlišče: Vozlišče
+
+    def __init__(self, vozlišče: Vozlišče):
+        self.vozlišče = vozlišče
+
+    def __len__(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + "!\n" +
+            self.vozlišče.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> Vozlišče:
+        opti = Zanikaj(self.vozlišče.optimiziran(nivo))
+
+        if nivo == 1: return opti
+
+        if type(opti.vozlišče) is Resnica:
+            return Laž()
+        elif type(opti.vozlišče) == Laž:
+            return Resnica()
+
+        if nivo == 2: return opti
+
+        return opti
+
+    def prevedi(self) -> str:
+        return Če(self.vozlišče, Laž(), Resnica()).prevedi()
+
+class Konjunkcija(Izraz):
+    def __len__(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + "&\n" +
+            self.l.drevo(globina + 1) + 
+            self.r.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        opti = Konjunkcija(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
+
+        if opti.l == Resnica() and opti.r == Resnica():
+            return Resnica()
+        elif opti.l == Laž() and opti.r == Resnica():
+            return Laž()
+        elif opti.l == Resnica() and opti.r == Laž():
+            return Laž()
+        elif opti.l == Laž() or opti.r == Laž():
+            return Laž()
+
+        if nivo == 1: return opti
+
+        return opti
+
+    def prevedi(self) -> str:
+        return Če(self.l, self.r, Laž()).prevedi()
+
+class Disjunkcija(Izraz):
+    def __len__(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + "|\n" +
+            self.l.drevo(globina + 1) + 
+            self.r.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        opti = Disjunkcija(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
+
+        if opti.l == Resnica() and opti.r == Resnica():
+            return Resnica()
+        elif opti.l == Laž() and opti.r == Resnica():
+            return Resnica()
+        elif opti.l == Resnica() and opti.r == Laž():
+            return Resnica()
+        elif opti.l == Laž() or opti.r == Laž():
+            return Laž()
+
+        if nivo == 1: return opti
+
+        return opti
+
+    def prevedi(self) -> str:
+        return Če(self.l, Resnica(), self.r).prevedi()
+
+class Enako(Izraz):
+    def __len__(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + "==\n" +
+            self.l.drevo(globina + 1) + 
+            self.r.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        opti = Enako(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
+
+        if opti.l == opti.r:
+            return Resnica()
+
+        if nivo == 1: return opti
+
+        if type(opti.l) is Število and type(opti.r) is Število:
+            if opti.l > opti.r:
+                return Laž()
+            elif opti.l < opti.r:
+                return Laž()
+
+        if nivo == 2: return opti
+
+        return opti
+
+    def prevedi(self) -> str:
+        razlika = Odštevanje(self.l, self.r).optimiziran(2)
+        return (
+            razlika.prevedi() +
+            "ZERO\n"
+        )
+
+class Večje(Izraz):
+    def __len__(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + ">\n" +
+            self.l.drevo(globina + 1) + 
+            self.r.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        opti = Večje(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+
+        if nivo == 0: return opti
+
+        if opti.l == opti.r:
+            return Laž()
+
+        if nivo == 1: return opti
+
+        if type(opti.l) is Število and type(opti.r) is Število:
+            if opti.l > opti.r:
+                return Resnica()
+            elif opti.l < opti.r:
+                return Laž()
+
+        if nivo == 2: return opti
+
+        return opti
+
+    def prevedi(self) -> str:
+        razlika = Odštevanje(self.l, self.r).optimiziran(2)
+        return (
+            razlika.prevedi() +
+            "POS\n"
+        )
+
+class VečjeEnako(Izraz):
+    def __len__(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + ">=\n" +
+            self.l.drevo(globina + 1) + 
+            self.r.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return Disjunkcija(
+            Večje(self.l, self.r),
+            Enako(self.l, self.r)
+        ).optimiziran(nivo)
+
+    def prevedi(self) -> str:
+        return self.optimiziran().prevedi()
+
+class Manjše(Izraz):
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + "<\n" +
+            self.l.drevo(globina + 1) + 
+            self.r.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return Večje(
+            self.r, 
+            self.l
+        ).optimiziran(nivo)
+
+    def prevedi(self) -> str:
+        return self.optimiziran().prevedi()
+
+class ManjšeEnako(Izraz):
+    def __len__(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + "<=\n" +
+            self.l.drevo(globina + 1) + 
+            self.r.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return VečjeEnako(self.r, self.l).optimiziran(nivo)
+
+    def prevedi(self) -> str:
+        return self.optimiziran().prevedi()
+
+class Če(Vozlišče):
+    pogoj: Vozlišče
+    resnica: Vozlišče
+    laž: Vozlišče
+
+    def __init__(self, pogoj: Vozlišče, resnica: Vozlišče, laž: Vozlišče):
+        self.pogoj = pogoj
+        self.resnica = resnica
+        self.laž = laž
+        if len(self.resnica) != len(self.laž):
+            return Exception("resnica and laž morata imeti enako velik stack")
+
+    def __len__(self) -> int:
+        return len(self.resnica)
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            "if (\n" +
+            self.pogoj.drevo(globina +  1) +
+            ") {\n" +
+            self.resnica.drevo(globina + 1) +
+            "}\nelse {\n" +
+            self.laž.drevo(globina + 1)
+        )
+
+    def optimiziran(self, nivo: int = 0) -> Vozlišče:
+        opti = Če(
+            self.pogoj.optimiziran(nivo),
+            self.resnica.optimiziran(nivo),
+            self.laž.optimiziran(nivo)
+        )
+
+        if nivo == 0: return opti
+
+        if opti.pogoj == Resnica():
+            return opti.resnica
+        elif opti.pogoj == Laž():
+            return opti.laž
+
+        if nivo == 1: return opti
+
+        return opti
+
+    def prevedi(self) -> str:
+        resnica_ukazi = self.resnica.prevedi()
+        resnica_len = len(resnica_ukazi.split('\n'))
+        laž_ukazi = self.laž.prevedi()
+        laž_len = len(laž_ukazi.split('\n'))
+
+        return (
+            self.pogoj.prevedi() +
+            f"IF +{laž_len + 1}\n" +
+            laž_ukazi +
+            f"JMP +{resnica_len}\n" +
+            resnica_ukazi
+        )
+
 class Prirejanje(Vozlišče):
     spremenljivka: Spremenljivka
     izraz: Izraz
@@ -512,7 +846,7 @@ class Prirejanje(Vozlišče):
             and self.nova_spr == o.nova_spr
         )
 
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + str(self.spremenljivka) + " =\n" +
             self.izraz.drevo(globina + 1)
@@ -535,7 +869,7 @@ class Zaporedje(Izraz):
     def __len__(self) -> int:
         return len(self.l) + len(self.r)
 
-    def drevo(self, globina: int = 0, reverse = False):
+    def drevo(self, globina: int = 0, reverse = False) -> str:
         return (
             self.r.drevo(globina) +
             globina * "  " + ",\n" + (
@@ -572,7 +906,7 @@ class Natisni(Vozlišče):
     def __eq__(self, o: object) -> bool:
         return type(o) is Natisni and self.izrazi == o.izrazi
 
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "natisni(\n" + (
                 self.izrazi.drevo(globina + 1, True)
@@ -605,7 +939,7 @@ class Okvir(Vozlišče):
     def __eq__(self, o: object) -> bool:
         return type(o) is Okvir and self.zaporedje == o.zaporedje
 
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "{\n" +
             self.zaporedje.drevo(globina + 1) +
@@ -631,7 +965,7 @@ class FunkcijskiKlic(Vozlišče):
         self.argumenti = argumenti
         self.okvir = ukazi
 
-    def drevo(self, globina: int = 0):
+    def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "{\n" +
             self.zaporedje.drevo(globina+1) +
