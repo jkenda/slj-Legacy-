@@ -753,7 +753,7 @@ class Manjše(Izraz):
 
 class ManjšeEnako(Izraz):
     def sprememba_stacka(self) -> int:
-        return 0
+        return VečjeEnako(self.r, self.l).sprememba_stacka()
 
     def drevo(self, globina: int = 0) -> str:
         return (
@@ -766,7 +766,7 @@ class ManjšeEnako(Izraz):
         return self
 
     def prevedi(self) -> str:
-        return VečjeEnako(self.r, self.l).optimiziran().prevedi()
+        return VečjeEnako(self.r, self.l).prevedi()
 
 class Skok(Vozlišče):
     skok: int
@@ -852,9 +852,13 @@ class PogojniStavek(Vozlišče):
         self.pogoj = pogoj
         self.resnica = resnica
         self.laž = laž
+        sprememba = self.pogoj.sprememba_stacka()
 
-        if self.pogoj.sprememba_stacka() != 1:
-            raise Exception(f"Pogoj mora imeti spremembo 1:\n{pogoj.drevo()}")
+        if sprememba != 1:
+            raise Exception(
+                f"Pogoj mora imeti spremembo 1:\n"
+                f"{pogoj.drevo()}"
+            )
 
         if self.resnica.sprememba_stacka() != self.laž.sprememba_stacka():
             raise Exception(
@@ -875,13 +879,12 @@ class PogojniStavek(Vozlišče):
 
     def drevo(self, globina: int = 0) -> str:
         return (
-            "if (\n" +
+            globina * "  " + "če (\n" +
             self.pogoj.drevo(globina +  1) +
-            ") {\n" +
-            self.resnica.drevo(globina + 1) +
-            "}\nelse {\n" +
-            self.laž.drevo(globina + 1) +
-            "}\n"
+            globina * "  " + ")\n" +
+            self.resnica.drevo(globina) +
+            globina * "  " + "čene\n" +
+            self.laž.drevo(globina)
         )
 
     def optimiziran(self, nivo: int = 0) -> Vozlišče:
@@ -922,9 +925,13 @@ class Zanka(Vozlišče):
     def __init__(self, pogoj: Vozlišče, telo: TOkvir) -> None:
         self.pogoj = pogoj
         self.telo = telo
+        sprememba = pogoj.sprememba_stacka()
 
-        if pogoj.sprememba_stacka() != 1:
-            raise Exception(f"Napačna velikost okvirja:\n{pogoj.drevo()}")
+        if sprememba != 1:
+            raise Exception(
+                f"Napačna velikost pogoja: {sprememba}\n"
+                f"{pogoj.drevo()}"
+            )
 
         if telo.sprememba_stacka() != 0:
             raise Exception(f"Napačna velikost okvirja:\n{telo.drevo()}")
@@ -938,7 +945,7 @@ class Zanka(Vozlišče):
 
     def drevo(self, globina: int = 0) -> str:
         return (
-            globina * "  " + "while (\n" +
+            globina * "  " + "dokler (\n" +
             self.pogoj.drevo(globina +  1) +
             globina * "  " + ") {\n" +
             self.telo.drevo(globina + 1) +

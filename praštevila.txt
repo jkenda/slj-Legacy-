@@ -1,0 +1,20 @@
+
+kandidat = 2
+
+dokler kandidat <= 10000 {
+    praštevilo = resnica
+
+    i = 2
+    dokler i <= kandidat / 2 & praštevilo {
+        če kandidat % i == 0 {
+            praštevilo = laž
+        }
+        i += 1
+    }
+
+    če praštevilo {
+        natisni(kandidat, "\n")
+    }
+
+    kandidat += 1
+}
