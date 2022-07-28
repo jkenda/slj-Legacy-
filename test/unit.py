@@ -59,7 +59,7 @@ def spremenljivka():
     assert(s2 != s3)
     assert(s3.drevo(2) == "    y @1\n")
     assert(s2.optimiziran(2) == s2)
-    assert(s1.prevedi() == "PUSH @0\n")
+    assert(s1.prevedi() == "LOAD @0\n")
     print("OK")
 
 def seštevanje():
@@ -148,7 +148,7 @@ def prirejanje():
     assert(p2.drevo(1) == f"  x @0 =\n{Število(3).drevo(2)}")
     assert(p2.optimiziran(1) == p3.optimiziran(1))
     assert(p2.prevedi() == Število(3).prevedi())
-    assert(p4.prevedi() == Število(3).prevedi() + "MOV @0\nPOP\n")
+    assert(p4.prevedi() == Število(3).prevedi() + "STORE @0\nPOP\n")
     print("OK")
 
 def zaporedje():

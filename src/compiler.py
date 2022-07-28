@@ -53,12 +53,12 @@ def main(argc: int, argv: list[str]) -> int:
 		optimizacija = int(argv[3])
 
 	with open(argv[1], "r") as file:
-#		try:
+		try:
 			vsebina = file.read()
 			korenski_okvir = okvir(vsebina, dict())
-#		except Exception as e:
-#			print(e)
-#			return 2
+		except Exception as e:
+			print(e)
+			return 2
 
 	print(korenski_okvir.drevo())
 
@@ -76,7 +76,7 @@ def main(argc: int, argv: list[str]) -> int:
 	if optimizacija > 0:
 		print(korenski_okvir.drevo())
 
-	assembler = korenski_okvir.prevedi()
+	assembler = postprocesiran(korenski_okvir.prevedi())
 	razmerje = len(assembler.split('\n')) / št_vrstic_neoptimizirano
 	print("optimizirano / neoptimizirano:", round(razmerje * 100), "%")
 
@@ -143,7 +143,7 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 				naslovi_spr[ime] = len(vsi_naslovi)
 				vsi_naslovi = naslovi_staršev | naslovi_spr
 
-			print(naslovi_staršev, naslovi_spr, razdeljen[0])
+			#print(naslovi_staršev, naslovi_spr, razdeljen[0])
 			
 			drev = drevo(razdeljen[1], vsi_naslovi)
 
@@ -341,31 +341,25 @@ def predprocesiran(izraz: str) -> str:
 		if med_navednicami or not char.isspace():
 			predproc_str += char
 
-	# dodaj znak '*' v implicitno množenje
-	i = 1
-	dolzina = len(predproc_str)
-	while i < dolzina:
-		prev = predproc_str[i-1]; curr = predproc_str[i]
-		vstavi_krat = False
-		if prev == ')' and curr == '(':
-			# )(
-			vstavi_krat = True
-		if prev.isnumeric():
-			# 2a, 2(...)
-			if curr.isalpha() or curr == '(':
-				vstavi_krat = True
-		elif prev == ')':
-				# (...)a, (...)2
-			if curr.isalpha() or curr.isnumeric():
-				vstavi_krat = True
-			
-		if vstavi_krat:
-			predproc_str = predproc_str[:i] + '*' + predproc_str[i:]
-			dolzina += 1
-			i += 1
-		i += 1
-
 	return predproc_str
+
+# nadomesti relativne skoke z absolutnimi
+def postprocesiran(ukazi: str) -> str:
+	postproc = ""
+
+	for št_vrstice, vrstica in enumerate(ukazi.split('\n')):
+		if vrstica == "": continue
+		razdeljen = vrstica.split(' ')
+		ukaz = razdeljen[0]
+
+		if ukaz in ["JUMP", "JMPC"]:
+			relativni_skok = int(razdeljen[1])
+			absolutni_skok = št_vrstice + relativni_skok
+			postproc += f"{ukaz} #{absolutni_skok}\n"
+		else:
+			postproc += f"{vrstica}\n"
+
+	return postproc
 
 def poišči(izraz: str, niz: str) -> int:
 	navadnih_oklepajev = 0

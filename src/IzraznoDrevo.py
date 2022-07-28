@@ -208,7 +208,7 @@ class Spremenljivka(Vozlišče):
         return Spremenljivka(self.ime, self.naslov)
 
     def prevedi(self) -> str:
-        return f"PUSH @{self.naslov}\n"
+        return f"LOAD @{self.naslov}\n"
 
 class Resnica(Vozlišče):
     def __eq__(self, __o: object) -> bool:
@@ -792,9 +792,9 @@ class Skok(Vozlišče):
         if self.skok == 0:
             return ""
         elif self.skok > 0:
-            return f"JMP +{abs(self.skok)}\n"
+            return f"JUMP +{abs(self.skok)}\n"
         else:
-            return f"JMP -{abs(self.skok)}\n"
+            return f"JUMP -{abs(self.skok)}\n"
 
 class PogojniSkok(Vozlišče):
     pogoj: Vozlišče
@@ -835,12 +835,12 @@ class PogojniSkok(Vozlišče):
         elif self.skok > 0:
             return (
                 self.pogoj.prevedi() +
-                f"IF +{abs(self.skok)}\n"
+                f"JMPC +{abs(self.skok)}\n"
             )
         else:
             return (
                 self.pogoj.prevedi() +
-                f"IF -{abs(self.skok)}\n"
+                f"JMPC -{abs(self.skok)}\n"
             )
 
 class PogojniStavek(Vozlišče):
@@ -1010,7 +1010,7 @@ class Prirejanje(Vozlišče):
     def prevedi(self) -> str:
         return (
             self.izraz.prevedi() +
-            f"MOV @{self.spremenljivka.naslov}\n"
+            f"STORE @{self.spremenljivka.naslov}\n"
         )
 
 class Zaporedje(Izraz):

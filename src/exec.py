@@ -21,6 +21,8 @@ def main(argc: int, argv: list[str]) -> int:
         pc = 0
 
         while True:
+            if pc >= len(lines):
+                break
             if not lines[pc] or lines[pc].isspace():
                 # prazna vrstica
                 pc += 1
@@ -34,30 +36,18 @@ def main(argc: int, argv: list[str]) -> int:
                 # komentar
                 pc +=1
                 continue
-            elif ukaz == "JMP":
+            elif ukaz == "JUMP":
+                # samo absolutni skoki
                 ostanek = lines[pc][len(ukaz)+1:]
                 tip = ostanek[0]
-                if tip == '#':
+                pc = int(ostanek[1:]) - 1
+            elif ukaz == "JMPC":
+                # samo absolutni skoki
+                ostanek = lines[pc][len(ukaz)+1:]
+                tip = ostanek[0]
+                if stack[-1] == RESNICA:
                     pc = int(ostanek[1:]) - 1
-                elif tip == '+':
-                    pc += int(ostanek[1:]) - 1
-                elif tip == '-':
-                    pc -= int(ostanek[1:]) + 1
-            elif ukaz == "IF":
-                ostanek = lines[pc][len(ukaz)+1:]
-                tip = ostanek[0]
-                if tip == '#':
-                    if stack[-1] == RESNICA:
-                        pc = int(ostanek[1:]) - 1
-                    stack.pop()
-                elif tip == '+':
-                    if stack[-1] == RESNICA:
-                        pc += int(ostanek[1:]) - 1
-                    stack.pop()
-                elif tip == '-':
-                    if stack[-1] == RESNICA:
-                        pc -= int(ostanek[1:]) + 1
-                    stack.pop()
+                stack.pop()
             elif ukaz == "POS":
                 stack[-1] = RESNICA if stack[-1] > 0 else LAŽ
             elif ukaz == "ZERO":
@@ -66,10 +56,7 @@ def main(argc: int, argv: list[str]) -> int:
             elif ukaz == "PUSH":
                 ostanek = lines[pc][len(ukaz)+1:]
                 tip = ostanek[0]
-                if tip == '@':
-                    # naslov
-                    stack.append(stack[int(ostanek[1:])])
-                elif tip == '#':
+                if tip == '#':
                     # literal
                     stack.append((float(ostanek[1:])))
                 elif tip == '"':
@@ -79,9 +66,13 @@ def main(argc: int, argv: list[str]) -> int:
                     char = char.replace('\\r', '\r')
                     char = char.replace('\\t', '\t')
                     stack.append(char)
+            elif ukaz == "LOAD":
+                ostanek = lines[pc][len(ukaz)+1:]
+                # naslov
+                stack.append(stack[int(ostanek[1:])])
             elif ukaz == "POP":
                 stack.pop()
-            elif ukaz == "MOV":
+            elif ukaz == "STORE":
                 ostanek = lines[pc][len(ukaz)+1:]
                 stack[int(ostanek[1:])] = stack[-1]
                 stack.pop()
@@ -96,8 +87,6 @@ def main(argc: int, argv: list[str]) -> int:
             if print_stack: print(stack)
 
             pc += 1
-            if pc == len(lines):
-                break
 
 if __name__ == "__main__":
     exit(main(len(sys.argv), sys.argv))
