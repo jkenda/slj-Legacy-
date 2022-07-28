@@ -84,6 +84,7 @@ def main(argc: int, argv: list[str]) -> int:
             elif ukaz == "MOV":
                 ostanek = lines[pc][len(ukaz)+1:]
                 stack[int(ostanek[1:])] = stack[-1]
+                stack.pop()
             elif ukaz == "PRINT":
                 ostanek = lines[pc][len(ukaz)+1:]
                 if not print_stack: print(str(stack[-1]), end="")

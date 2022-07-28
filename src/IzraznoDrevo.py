@@ -1,11 +1,16 @@
 from abc import ABC, abstractmethod
 from math import ceil
+from re import I
 from typing import TypeVar
 
 TVozlišče = TypeVar("TVozlišče", bound="Vozlišče")
 TIzraz = TypeVar("TIzraz", bound="Izraz")
 
 class Vozlišče(ABC):
+
+    @abstractmethod
+    def sprememba_stacka(self) -> int:
+        pass
 
     @abstractmethod
     def drevo(self, globina: int = 0) -> str:
@@ -19,10 +24,6 @@ class Vozlišče(ABC):
     def prevedi(self) -> str:
         pass
 
-    @abstractmethod
-    def __len__(self) -> int:
-        pass
-
 class Izraz(Vozlišče):
     l: TIzraz
     r: TIzraz
@@ -31,14 +32,24 @@ class Izraz(Vozlišče):
         self.l = l
         self.r = r
 
-    def __len__(self) -> int:
-        return 1
+        if l.sprememba_stacka() != 1:
+            raise Exception(f"Napačna velikost izraza:\n{l.drevo()}")
+
+        if r.sprememba_stacka() != 1:
+            raise Exception(f"Napačna velikost izraza:\n{r.drevo()}")
+
+    def sprememba_stacka(self) -> int:
+        return (
+            self.l.sprememba_stacka() +
+            self.r.sprememba_stacka() +
+            -1
+        )
 
     def __eq__(self, o: TIzraz) -> bool:
         return type(self) == type(o) and self.l == o.l and self.r == o.r
 
 class Prazno(Vozlišče):
-    def __len__(self) -> int:
+    def sprememba_stacka(self) -> int:
         return 0
 
     def __str__(self) -> str:
@@ -66,7 +77,7 @@ class Niz(Vozlišče):
         niz = niz.replace('\\t', '\t')
         self.niz = niz
 
-    def __len__(self) -> int:
+    def sprememba_stacka(self) -> int:
         return ceil(len(self.niz) / 4)
 
     def __str__(self) -> str:
@@ -119,9 +130,6 @@ class Število(Vozlišče):
     def __init__(self, število: float):
         self.število = float(število)
 
-    def __len__(self) -> int:
-        return 1
-
     def __str__(self) -> str:
         return str(self.število)
 
@@ -160,6 +168,9 @@ class Število(Vozlišče):
     def __mod__(self, o: object):
         return Število(self.število % float(o))
 
+    def sprememba_stacka(self) -> int:
+        return 1
+
     def drevo(self, globina: int = 0) -> str:
         return globina * "  " + str(self.število) + '\n'
 
@@ -177,7 +188,7 @@ class Spremenljivka(Vozlišče):
         self.ime = str(ime)
         self.naslov = int(naslov)
 
-    def __len__(self) -> int:
+    def sprememba_stacka(self) -> int:
         return 1
 
     def __str__(self) -> str:
@@ -203,7 +214,7 @@ class Resnica(Vozlišče):
     def __eq__(self, __o: object) -> bool:
         return type(__o) is Resnica
 
-    def __len__(self) -> int:
+    def sprememba_stacka(self) -> int:
         return 1
 
     def __str__(self) -> str:
@@ -222,7 +233,7 @@ class Laž(Vozlišče):
     def __eq__(self, __o: object) -> bool:
         return type(__o) is Laž
 
-    def __len__(self) -> int:
+    def sprememba_stacka(self) -> int:
         return 1
 
     def __str__(self) -> str:
@@ -549,8 +560,11 @@ class Zanikaj(Vozlišče):
     def __init__(self, vozlišče: Vozlišče):
         self.vozlišče = vozlišče
 
-    def __len__(self) -> int:
-        return 1
+        if vozlišče.sprememba_stacka() != 1:
+            raise Exception(f"Napačna velikost izraza:\n{vozlišče.drevo()}")
+
+    def sprememba_stacka(self) -> int:
+        return self.vozlišče.sprememba_stacka()
 
     def drevo(self, globina: int = 0) -> str:
         return (
@@ -573,12 +587,9 @@ class Zanikaj(Vozlišče):
         return opti
 
     def prevedi(self) -> str:
-        return Če(self.vozlišče, Laž(), Resnica()).prevedi()
+        return PogojniStavek(self.vozlišče, Laž(), Resnica()).prevedi()
 
 class Konjunkcija(Izraz):
-    def __len__(self) -> int:
-        return 1
-
     def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "&\n" +
@@ -605,12 +616,9 @@ class Konjunkcija(Izraz):
         return opti
 
     def prevedi(self) -> str:
-        return Če(self.l, self.r, Laž()).prevedi()
+        return PogojniStavek(self.l, self.r, Laž()).prevedi()
 
 class Disjunkcija(Izraz):
-    def __len__(self) -> int:
-        return 1
-
     def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "|\n" +
@@ -637,12 +645,9 @@ class Disjunkcija(Izraz):
         return opti
 
     def prevedi(self) -> str:
-        return Če(self.l, Resnica(), self.r).prevedi()
+        return PogojniStavek(self.l, Resnica(), self.r).prevedi()
 
 class Enako(Izraz):
-    def __len__(self) -> int:
-        return 1
-
     def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + "==\n" +
@@ -671,16 +676,13 @@ class Enako(Izraz):
         return opti
 
     def prevedi(self) -> str:
-        razlika = Odštevanje(self.l, self.r).optimiziran(2)
+        razlika = Odštevanje(self.l, self.r).optimiziran()
         return (
             razlika.prevedi() +
             "ZERO\n"
         )
 
 class Večje(Izraz):
-    def __len__(self) -> int:
-        return 1
-
     def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + ">\n" +
@@ -716,9 +718,6 @@ class Večje(Izraz):
         )
 
 class VečjeEnako(Izraz):
-    def __len__(self) -> int:
-        return 1
-
     def drevo(self, globina: int = 0) -> str:
         return (
             globina * "  " + ">=\n" +
@@ -727,13 +726,13 @@ class VečjeEnako(Izraz):
         )
 
     def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return self
+
+    def prevedi(self) -> str:
         return Disjunkcija(
             Večje(self.l, self.r),
             Enako(self.l, self.r)
-        ).optimiziran(nivo)
-
-    def prevedi(self) -> str:
-        return self.optimiziran().prevedi()
+        ).optimiziran().prevedi()
 
 class Manjše(Izraz):
     def drevo(self, globina: int = 0) -> str:
@@ -744,17 +743,17 @@ class Manjše(Izraz):
         )
 
     def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return self
+
+    def prevedi(self) -> str:
         return Večje(
             self.r, 
             self.l
-        ).optimiziran(nivo)
-
-    def prevedi(self) -> str:
-        return self.optimiziran().prevedi()
+        ).optimiziran().prevedi()
 
 class ManjšeEnako(Izraz):
-    def __len__(self) -> int:
-        return 1
+    def sprememba_stacka(self) -> int:
+        return 0
 
     def drevo(self, globina: int = 0) -> str:
         return (
@@ -764,12 +763,87 @@ class ManjšeEnako(Izraz):
         )
 
     def optimiziran(self, nivo: int = 0) -> TVozlišče:
-        return VečjeEnako(self.r, self.l).optimiziran(nivo)
+        return self
 
     def prevedi(self) -> str:
-        return self.optimiziran().prevedi()
+        return VečjeEnako(self.r, self.l).optimiziran().prevedi()
 
-class Če(Vozlišče):
+class Skok(Vozlišče):
+    skok: int
+
+    def __init__(self, skok: int):
+        self.skok = skok
+
+    def sprememba_stacka(self) -> int:
+        return 0
+
+    def drevo(self, globina: int = 0) -> str:
+        if self.skok >= 0:
+            return globina * "  " + f"skok +{abs(self.skok)}\n"
+        else:
+            return globina * "  " + f"skok -{abs(self.skok)}\n"
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        if self.skok == 0:
+            return Prazno()
+        return Skok(self.skok)
+
+    def prevedi(self) -> str:
+        if self.skok == 0:
+            return ""
+        elif self.skok > 0:
+            return f"JMP +{abs(self.skok)}\n"
+        else:
+            return f"JMP -{abs(self.skok)}\n"
+
+class PogojniSkok(Vozlišče):
+    pogoj: Vozlišče
+    skok: int
+
+    def __init__(self, pogoj: Vozlišče, skok: int):
+        self.pogoj = pogoj
+        self.skok = skok
+
+        if pogoj.sprememba_stacka() != 1:
+            raise Exception(f"Napačna velikost pogoja:\n{pogoj.drevo()}")
+
+    def sprememba_stacka(self) -> int:
+        return self.pogoj.sprememba_stacka() - 1
+
+    def drevo(self, globina: int = 0) -> str:
+        if self.skok >= 0:
+            return (
+                globina * "  " + f"pogojni skok(" +
+                self.pogoj.drevo(globina + 1) +
+                f") +{abs(self.skok)}"
+            )
+        else:
+            return (
+                globina * "  " + f"pogojni skok(" +
+                self.pogoj.drevo(globina + 1) +
+                f") -{abs(self.skok)}"
+            )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        if self.pogoj.optimiziran(nivo) == Resnica() or self.skok == 0:
+            return Prazno()
+        return PogojniSkok(self.pogoj, self.skok)
+
+    def prevedi(self) -> str:
+        if self.skok == 0:
+            return ""
+        elif self.skok > 0:
+            return (
+                self.pogoj.prevedi() +
+                f"IF +{abs(self.skok)}\n"
+            )
+        else:
+            return (
+                self.pogoj.prevedi() +
+                f"IF -{abs(self.skok)}\n"
+            )
+
+class PogojniStavek(Vozlišče):
     pogoj: Vozlišče
     resnica: Vozlišče
     laž: Vozlišče
@@ -778,11 +852,26 @@ class Če(Vozlišče):
         self.pogoj = pogoj
         self.resnica = resnica
         self.laž = laž
-        if len(self.resnica) != len(self.laž):
-            return Exception("resnica and laž morata imeti enako velik stack")
 
-    def __len__(self) -> int:
-        return len(self.resnica)
+        if self.pogoj.sprememba_stacka() != 1:
+            raise Exception(f"Pogoj mora imeti spremembo 1:\n{pogoj.drevo()}")
+
+        if self.resnica.sprememba_stacka() != self.laž.sprememba_stacka():
+            raise Exception(
+                "resnica and laž morata imeti enako spremembo stacka:\n" +
+                self.resnica.drevo() + '\n' +
+                self.laž.drevo()
+            )
+
+    def sprememba_stacka(self) -> int:
+        return (
+            self.pogoj.sprememba_stacka() +
+            -1 +
+            max(
+                self.resnica.sprememba_stacka(),
+                self.laž.sprememba_stacka()
+            )
+        )
 
     def drevo(self, globina: int = 0) -> str:
         return (
@@ -791,11 +880,12 @@ class Če(Vozlišče):
             ") {\n" +
             self.resnica.drevo(globina + 1) +
             "}\nelse {\n" +
-            self.laž.drevo(globina + 1)
+            self.laž.drevo(globina + 1) +
+            "}\n"
         )
 
     def optimiziran(self, nivo: int = 0) -> Vozlišče:
-        opti = Če(
+        opti = PogojniStavek(
             self.pogoj.optimiziran(nivo),
             self.resnica.optimiziran(nivo),
             self.laž.optimiziran(nivo)
@@ -813,37 +903,98 @@ class Če(Vozlišče):
         return opti
 
     def prevedi(self) -> str:
-        resnica_ukazi = self.resnica.prevedi()
-        resnica_len = len(resnica_ukazi.split('\n'))
-        laž_ukazi = self.laž.prevedi()
-        laž_len = len(laž_ukazi.split('\n'))
+        resnica_len = len(self.resnica.prevedi().split('\n'))
+        laž_len = len(self.laž.prevedi().split('\n'))
 
+        return Zaporedje(
+            PogojniSkok(self.pogoj, laž_len + 1),
+            self.laž,
+            Skok(resnica_len),
+            self.resnica
+        ).prevedi()
+
+TOkvir = TypeVar("TOkvir", bound="Okvir")
+
+class Zanka(Vozlišče):
+    pogoj: Vozlišče
+    telo: TOkvir
+
+    def __init__(self, pogoj: Vozlišče, telo: TOkvir) -> None:
+        self.pogoj = pogoj
+        self.telo = telo
+
+        if pogoj.sprememba_stacka() != 1:
+            raise Exception(f"Napačna velikost okvirja:\n{pogoj.drevo()}")
+
+        if telo.sprememba_stacka() != 0:
+            raise Exception(f"Napačna velikost okvirja:\n{telo.drevo()}")
+
+    def sprememba_stacka(self) -> int:
         return (
-            self.pogoj.prevedi() +
-            f"IF +{laž_len + 1}\n" +
-            laž_ukazi +
-            f"JMP +{resnica_len}\n" +
-            resnica_ukazi
+            self.pogoj.sprememba_stacka() +
+            -1 +
+            self.telo.sprememba_stacka()
         )
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + "while (\n" +
+            self.pogoj.drevo(globina +  1) +
+            globina * "  " + ") {\n" +
+            self.telo.drevo(globina + 1) +
+            globina * "  " + "}\n"
+        )
+
+    def optimiziran(self, nivo: int = 0) -> Vozlišče:
+        opti = Zanka(
+            self.pogoj.optimiziran(nivo),
+            self.telo.optimiziran(nivo)
+        )
+
+        if nivo == 0: return opti
+
+        if opti.pogoj == Laž():
+            return Prazno()
+
+        if nivo == 1: return opti
+
+        # dodaj unrollanje
+
+        return opti
+
+    def prevedi(self) -> str:
+        pogoj_len = len(self.pogoj.prevedi().split('\n'))
+        telo_len = len(self.telo.prevedi().split('\n'))
+
+        return PogojniStavek(self.pogoj, 
+            Zaporedje(
+                self.telo, 
+                Skok(-(telo_len + pogoj_len))
+            ), 
+            Prazno()
+        ).prevedi()
 
 class Prirejanje(Vozlišče):
     spremenljivka: Spremenljivka
     izraz: Izraz
-    nova_spr: bool
 
-    def __init__(self, spremenljivka: Spremenljivka, izraz: Izraz, nova_spr: bool):
+    def __init__(self, spremenljivka: Spremenljivka, izraz: Izraz):
         self.spremenljivka = spremenljivka
         self.izraz = izraz
-        self.nova_spr = nova_spr
 
-    def __len__(self) -> int:
-        return 1 if self.nova_spr else 0
+        if izraz.sprememba_stacka() != 1:
+            raise Exception("Napačna velikost izraza.")
+
+    def sprememba_stacka(self) -> int:
+        return (
+            self.izraz.sprememba_stacka() +
+            -1
+        )
 
     def __eq__(self, o: object) -> bool:
         return (
             self.spremenljivka == o.spremenljivka
             and self.izraz == o.izraz
-            and self.nova_spr == o.nova_spr
         )
 
     def drevo(self, globina: int = 0) -> str:
@@ -853,21 +1004,29 @@ class Prirejanje(Vozlišče):
         )
 
     def optimiziran(self, nivo: int = 0) -> TIzraz:
-        opti = Prirejanje(self.spremenljivka, self.izraz.optimiziran(nivo), self.nova_spr)
+        opti = Prirejanje(self.spremenljivka, self.izraz.optimiziran(nivo))
         return opti
 
     def prevedi(self) -> str:
-        return self.izraz.prevedi() + (
-            (
-                f"MOV @{self.spremenljivka.naslov}\n" +
-                "POP\n"
-            ) if not self.nova_spr 
-            else ""
+        return (
+            self.izraz.prevedi() +
+            f"MOV @{self.spremenljivka.naslov}\n"
         )
 
 class Zaporedje(Izraz):
-    def __len__(self) -> int:
-        return len(self.l) + len(self.r)
+    def __init__(self, izraz1: Vozlišče, izraz2: Vozlišče, *izrazi: Vozlišče):
+        if not izrazi:
+            self.l = izraz1
+            self.r = izraz2
+        else:
+            self.l = Zaporedje(izraz1, izraz2, *izrazi[:-1])
+            self.r = izrazi[-1]
+
+    def sprememba_stacka(self) -> int:
+        return (
+            self.l.sprememba_stacka() +
+            self.r.sprememba_stacka()
+        )
 
     def drevo(self, globina: int = 0, reverse = False) -> str:
         return (
@@ -900,11 +1059,11 @@ class Natisni(Vozlišče):
     def __init__(self, izrazi: Zaporedje):
         self.izrazi = izrazi
 
-    def __len__(self) -> int:
-        return 0
-
     def __eq__(self, o: object) -> bool:
         return type(o) is Natisni and self.izrazi == o.izrazi
+
+    def sprememba_stacka(self) -> int:
+        return 0
 
     def drevo(self, globina: int = 0) -> str:
         return (
@@ -922,19 +1081,22 @@ class Natisni(Vozlišče):
     def prevedi(self) -> str:
         return (
             self.izrazi.prevedi() +
-            "PRINT\n" * len(self.izrazi)
+            "PRINT\n" * self.izrazi.sprememba_stacka()
         )
-
-TOkvir = TypeVar("TOkvir", bound="Okvir")
 
 class Okvir(Vozlišče):
     zaporedje: Zaporedje
+    št_spr: int
 
-    def __init__(self, zaporedje: Zaporedje):
+    def __init__(self, zaporedje: Zaporedje, št_spr: int):
         self.zaporedje = zaporedje
+        self.št_spr = št_spr
 
-    def __len__(self) -> int:
-        return len(self.zaporedje)
+        if zaporedje.sprememba_stacka() != 0:
+            raise Exception(f"Napačna velikost okvirja:\n{zaporedje.drevo()}")
+
+    def sprememba_stacka(self) -> int:
+        return 0
 
     def __eq__(self, o: object) -> bool:
         return type(o) is Okvir and self.zaporedje == o.zaporedje
@@ -947,12 +1109,13 @@ class Okvir(Vozlišče):
         )
 
     def optimiziran(self, nivo: int = 0) -> TOkvir:
-        return Okvir(self.zaporedje.optimiziran(nivo))
+        return Okvir(self.zaporedje.optimiziran(nivo), self.št_spr)
 
     def prevedi(self) -> str:
         return (
+            "PUSH #0\n" * self.št_spr +
             self.zaporedje.prevedi() +
-            "POP\n" * len(self.zaporedje)
+            "POP\n" * self.št_spr
         )
 
 class FunkcijskiKlic(Vozlišče):
@@ -964,6 +1127,9 @@ class FunkcijskiKlic(Vozlišče):
         self.ime = ime
         self.argumenti = argumenti
         self.okvir = ukazi
+
+    def sprememba_stacka(self) -> int:
+        return 0
 
     def drevo(self, globina: int = 0) -> str:
         return (
@@ -983,5 +1149,5 @@ class FunkcijskiKlic(Vozlišče):
         return (
             self.argumenti.prevedi() +
             self.ukaz + '\n' +
-            "POP\n" * len(self.argumenti)
+            "POP\n" * self.argumenti.sprememba_stacka()
         )

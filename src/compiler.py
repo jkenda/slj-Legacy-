@@ -15,7 +15,17 @@ REZERVIRANE_BESEDE = { "natisni", "resnica", "laž", "če", "čene" }
 	'-': Odštevanje, 
 	'*': Množenje, 
 	'/': Deljenje, 
+	'%': Modulo,
 	'^': Potenca 
+}
+
+PRIREJALNI = { 
+	'+=': Seštevanje, 
+	'-=': Odštevanje, 
+	'*=': Množenje, 
+	'/=': Deljenje, 
+	'%=': Modulo,
+	'^=': Potenca 
 }
 
 PRIMERJALNI = {
@@ -76,7 +86,7 @@ def main(argc: int, argv: list[str]) -> int:
 def okvir(izraz: str, naslovi_staršev: dict[str, int]) -> Okvir:
 	naslovi_spr = dict()
 	zap = zaporedje(izraz, naslovi_staršev, naslovi_spr)
-	return Okvir(zap)
+	return Okvir(zap, len(naslovi_spr))
 
 def zaporedje(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Zaporedje:
 	izraz = izraz.strip()
@@ -93,30 +103,26 @@ def zaporedje(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[st
 	return Zaporedje(zaporedje(izraz[:i_locila], naslovi_staršev, naslovi_spr), stavek(zadnji_stavek, naslovi_staršev, naslovi_spr))
 
 def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Prirejanje:
+	vsi_naslovi = naslovi_staršev | naslovi_spr
 	operator: Izraz = None
 	razdeljen = ""
 
-	if izraz.rfind("+=") != -1:
-		razdeljen = izraz.split("+=")
-		operator  = Seštevanje
-	elif izraz.rfind("-=") != -1:
-		razdeljen = izraz.split("-=")
-		operator  = Odštevanje
-	elif izraz.rfind("*=") != -1:
-		razdeljen = izraz.split("*=")
-		operator  = Množenje
-	elif izraz.rfind("/=") != -1:
-		razdeljen = izraz.split("/=")
-		operator  = Deljenje
-	elif izraz.rfind("%=") != -1:
-		razdeljen = izraz.split("%=")
-		operator  = Modulo
-	elif izraz.rfind("^=") != -1:
-		razdeljen = izraz.split("^=")
-		operator  = Potenca
+	operatorji = list(PRIREJALNI.keys())
+	lokacije = [ poišči(izraz, op) for op in operatorji ]
+
+	# poišči lokacijo zadnjega operatorja
+	lokacija = max(lokacije)
+
+	if lokacija != -1:
+		razdeljen = [izraz[:lokacija], izraz[lokacija+2:]]
+		operator = PRIREJALNI[operatorji[lokacije.index(lokacija)]]
 	elif izraz.startswith("natisni(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("natisni(") : -len(")")]
-		return Natisni(argumenti(notranji_izraz, naslovi_spr))
+		return Natisni(argumenti(notranji_izraz, vsi_naslovi))
+	elif izraz.startswith("če") and izraz.endswith("}"):
+		return pogojni_stavek(izraz, vsi_naslovi)
+	elif izraz.startswith("dokler") and izraz.endswith("}"):
+		return zanka(izraz, vsi_naslovi)
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -131,24 +137,61 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 		ime = razdeljen[0]
 
 		if ime not in konstante:
-			nova_spr = False
-			pozicija = naslovi_spr.get(ime)
+			naslov = vsi_naslovi.get(ime)
 			
-			if pozicija == None:
-				naslovi_spr[ime] = len(naslovi_spr)
-				nova_spr = True
+			if naslov == None:
+				naslovi_spr[ime] = len(vsi_naslovi)
+				vsi_naslovi = naslovi_staršev | naslovi_spr
+
+			print(naslovi_staršev, naslovi_spr, razdeljen[0])
 			
-			drev = drevo(razdeljen[1], naslovi_staršev | naslovi_spr)
+			drev = drevo(razdeljen[1], vsi_naslovi)
 
 			if (operator != None): 
-				drev = operator(Spremenljivka(ime, naslovi_spr[ime]), drev)
+				drev = operator(Spremenljivka(ime, vsi_naslovi[ime]), drev)
 
-			return Prirejanje(Spremenljivka(ime, naslovi_spr[ime]), drev, nova_spr)
+			return Prirejanje(Spremenljivka(ime, vsi_naslovi[ime]), drev)
 		else:
 			raise Exception(f"'{ime}' je konstanta.")
 	else:
 		raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
 
+def pogojni_stavek(izraz: str, naslovi_spr: dict[str, int]) -> PogojniStavek:
+	čene = poišči(izraz, "čene")
+	pogoj_resnica = izraz
+	laž = "{}"
+	if čene != -1:
+		pogoj_resnica = izraz[:čene]
+		laž = izraz[čene+len("čene"):]
+
+	oklepaj  = poišči(pogoj_resnica, '{')
+	zaklepaj = poišči(pogoj_resnica, '}')
+
+	pogoj = pogoj_resnica[len("če"):oklepaj]
+	resnica = pogoj_resnica[oklepaj+1:zaklepaj]
+
+	oklepaj = poišči(laž, '{')
+	zaklepaj = poišči(laž, '}')
+	laž = laž[oklepaj+1:zaklepaj]
+
+	return PogojniStavek(
+		drevo(pogoj, naslovi_spr),
+		okvir(resnica, naslovi_spr),
+		okvir(laž, naslovi_spr)
+	)
+
+def zanka(izraz: str, naslovi_spr: dict[str, int]) -> Zanka:
+	oklepaj  = poišči(izraz, '{')
+	zaklepaj = poišči(izraz, '}')
+
+	pogoj = izraz[len("dokler"):oklepaj]
+	telo = izraz[oklepaj+1:zaklepaj]
+
+	nove_spr = dict()
+	pogoj = drevo(pogoj, naslovi_spr)
+	telo = zaporedje(telo, naslovi_spr, nove_spr)
+
+	return Okvir(Zanka(pogoj, telo), len(nove_spr))
 
 def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
 	return disjunktivni(izraz, naslovi_spr)
@@ -186,7 +229,6 @@ def primerjalni(izraz: str, naslovi_spr: dict[str, int]) -> Večje | Enako | Dis
 		return aditivni(izraz, naslovi_spr)
 
 	operator = operatorji[lokacije.index(lokacija)]
-	print(operator, len(operator), izraz[lokacija+len(operator):])
 
 	return PRIMERJALNI[operator](
 		konjunktivni(izraz[:lokacija], naslovi_spr), 
@@ -326,32 +368,41 @@ def predprocesiran(izraz: str) -> str:
 	return predproc_str
 
 def poišči(izraz: str, niz: str) -> int:
-	oklepajev = 0
+	navadnih_oklepajev = 0
+	zavitih_oklepajev = 0
 	znotraj_navedic = False
 
 	i = len(izraz) - 1
 	while i >= 0:
-		if izraz[i] == ')':
-			oklepajev += 1
-		elif izraz[i] == '(':
-			oklepajev -= 1
+		if izraz[i] == '(':
+			navadnih_oklepajev -= 1
+		elif izraz[i] == '{':
+			zavitih_oklepajev -= 1
 		elif izraz[i] == '"':
 			znotraj_navedic = not znotraj_navedic
 
-		# iskani niz ni znotraj oklepajev
-		if oklepajev == 0 and not znotraj_navedic and izraz[i:].startswith(niz):
+		# iskani niz ni znotraj oklepajev ali navednic
+		if (
+			navadnih_oklepajev == 0 and zavitih_oklepajev == 0 
+			and not znotraj_navedic and izraz[i:].startswith(niz)
+		):
 			if i in [0, len(izraz)-1]:
 				return i
 			cl = izraz[i-1]; cr = izraz[i+len(niz)]
 			if (
-				(cl.isspace() or cl.isalnum() or cl in ['(', ')', '"']) and
-				(cr.isspace() or cr.isalnum() or cr in ['(', ')', '"'])
+				(cl.isspace() or cl.isalnum() or cl in ['(', ')', '"', '}']) and
+				(cr.isspace() or cr.isalnum() or cr in ['(', ')', '"', '}'])
 			):
 				return i
 
+		if izraz[i] == ')':
+			navadnih_oklepajev += 1
+		elif izraz[i] == '}':
+			zavitih_oklepajev += 1
+
 		i -= 1
 
-	if oklepajev != 0:
+	if navadnih_oklepajev != 0:
 		raise Exception("Oklepaji se ne ujemajo.")
 
 	return -1
