@@ -1020,45 +1020,26 @@ class Prirejanje(Vozlišče):
             f"STORE @{self.spremenljivka.naslov}\n"
         )
 
-class Zaporedje(Izraz):
-    def __init__(self, izraz1: Vozlišče, izraz2: Vozlišče, *izrazi: Vozlišče):
-        if not izrazi:
-            self.l = izraz1
-            self.r = izraz2
-        else:
-            self.l = Zaporedje(izraz1, izraz2, *izrazi[:-1])
-            self.r = izrazi[-1]
+class Zaporedje(Vozlišče):
+    zaporedje: list[Vozlišče]
+
+    def __init__(self, *zaporedje: Vozlišče):
+        self.zaporedje = list(zaporedje)
 
     def sprememba_stacka(self) -> int:
-        return (
-            self.l.sprememba_stacka() +
-            self.r.sprememba_stacka()
-        )
+        return sum(izraz.sprememba_stacka() for izraz in self.zaporedje)
 
-    def drevo(self, globina: int = 0, reverse = False) -> str:
-        return (
-            self.r.drevo(globina) +
-            globina * "  " + ",\n" + (
-                self.l.drevo(globina, reverse)
-                    if type(self.l) is Zaporedje 
-                    else self.l.drevo(globina)
-            )
-
-        ) if reverse else (
-            self.l.drevo(globina) +
-            globina * "  " + ",\n" +
-            self.r.drevo(globina)
+    def drevo(self, globina: int = 0) -> str:
+        return (globina * "  " + ",\n").join(
+            izraz.drevo(globina + 1) for izraz in self.zaporedje
         )
 
     def optimiziran(self, nivo: int = 0) -> TIzraz:
-        opti = Zaporedje(self.l.optimiziran(nivo), self.r.optimiziran(nivo))
+        opti = Zaporedje(*(izraz.optimiziran(nivo) for izraz in self.zaporedje))
         return opti
 
     def prevedi(self) -> str:
-        return (
-            self.l.prevedi() +
-            self.r.prevedi()
-        )
+        return "".join(izraz.prevedi() for izraz in self.zaporedje)
 
 class Natisni(Vozlišče):
     izrazi: Zaporedje
@@ -1074,11 +1055,8 @@ class Natisni(Vozlišče):
 
     def drevo(self, globina: int = 0) -> str:
         return (
-            globina * "  " + "natisni(\n" + (
-                self.izrazi.drevo(globina + 1, True)
-                    if type(self.izrazi) is Zaporedje 
-                    else self.izrazi.drevo(globina + 1)
-            ) +
+            globina * "  " + "natisni(\n" +
+            self.izrazi.drevo(globina + 1) +
             globina * "  " + ")\n"
         )
 
@@ -1087,8 +1065,15 @@ class Natisni(Vozlišče):
 
     def prevedi(self) -> str:
         return (
-            self.izrazi.prevedi() +
-            "PRINT\n" * self.izrazi.sprememba_stacka()
+            "".join(
+                izraz.prevedi() + 
+                (
+                    "PRINTS\n" * izraz.sprememba_stacka() 
+                        if type(izraz) is Niz 
+                        else "PRINTN\n" * izraz.sprememba_stacka()
+                )
+                for izraz in self.izrazi.zaporedje
+            )
         )
 
 class Okvir(Vozlišče):
