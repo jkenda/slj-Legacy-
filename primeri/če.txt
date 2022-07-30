@@ -1,6 +1,9 @@
 x = 1; y = 2
 
-če x < y {
+# izpiši absolutno vrednost
+če x == 0 {
+    natisni(0, "\n")
+} čene če x > y {
     natisni(x - y, "\n")
 } čene {
     natisni(y - x, "\n")

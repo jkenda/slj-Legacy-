@@ -84,6 +84,7 @@ def main(argc: int, argv: list[str]) -> int:
 		file.write(assembler)
 
 def okvir(izraz: str, naslovi_staršev: dict[str, int]) -> Okvir:
+	print(izraz, "\n,")
 	naslovi_spr = dict()
 	zap = zaporedje(izraz, naslovi_staršev, naslovi_spr)
 	return Okvir(zap, len(naslovi_spr))
@@ -94,7 +95,6 @@ def zaporedje(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[st
 	i_ločila = min(poišči_spredaj(izraz, '\n'), poišči_spredaj(izraz, ';'))
 	while i_ločila < len(izraz):
 		prvi_stavek = izraz[:i_ločila].split('#')[0].strip()
-		print(prvi_stavek, "\n")
 		if prvi_stavek != "":
 			izrazi.append(stavek(prvi_stavek, naslovi_staršev, naslovi_spr))
 		izraz = izraz[i_ločila+1:].strip()
@@ -119,6 +119,8 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 	if lokacija != -1:
 		razdeljen = [izraz[:lokacija], izraz[lokacija+2:]]
 		operator = PRIREJALNI[operatorji[lokacije.index(lokacija)]]
+	elif izraz.startswith('{') and izraz.endswith('}'):
+		return okvir(izraz[1:-1], vsi_naslovi)
 	elif izraz.startswith("natisni(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("natisni(") : -len(")")]
 		return Natisni(argumenti(notranji_izraz, vsi_naslovi))
@@ -160,22 +162,22 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 		raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
 
 def pogojni_stavek(izraz: str, naslovi_spr: dict[str, int]) -> PogojniStavek:
-	čene = poišči_zadaj(izraz, "čene")
+	čene = poišči_spredaj(izraz, "čene")
 	pogoj_resnica = izraz
 	laž = "{}"
 	if čene != -1:
 		pogoj_resnica = izraz[:čene]
-		laž = izraz[čene+len("čene"):]
+		laž = izraz[čene+len("čene"):].strip()
 
-	oklepaj  = poišči_zadaj(pogoj_resnica, '{')
+	oklepaj  = poišči_spredaj(pogoj_resnica, '{')
 	zaklepaj = poišči_zadaj(pogoj_resnica, '}')
 
 	pogoj = pogoj_resnica[len("če"):oklepaj]
 	resnica = pogoj_resnica[oklepaj+1:zaklepaj]
 
-	oklepaj = poišči_zadaj(laž, '{')
+	oklepaj = poišči_spredaj(laž, '{')
 	zaklepaj = poišči_zadaj(laž, '}')
-	laž = laž[oklepaj+1:zaklepaj]
+	#laž = laž[oklepaj+1:zaklepaj]
 
 	return PogojniStavek(
 		drevo(pogoj, naslovi_spr),
@@ -184,6 +186,8 @@ def pogojni_stavek(izraz: str, naslovi_spr: dict[str, int]) -> PogojniStavek:
 	)
 
 def zanka(izraz: str, naslovi_spr: dict[str, int]) -> Zanka:
+	izraz = izraz.strip()
+
 	oklepaj  = poišči_zadaj(izraz, '{')
 	zaklepaj = poišči_zadaj(izraz, '}')
 
@@ -197,9 +201,12 @@ def zanka(izraz: str, naslovi_spr: dict[str, int]) -> Zanka:
 	return Okvir(Zanka(pogoj, telo), len(nove_spr))
 
 def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
+	izraz = izraz.strip()
+
 	return disjunktivni(izraz, naslovi_spr)
 
 def disjunktivni(izraz: str, naslovi_spr: dict[str, int]) -> Disjunkcija:
+	izraz = izraz.strip()
 	lokacija = poišči_zadaj(izraz, '|')
 
 	if lokacija == -1:
@@ -324,7 +331,6 @@ def argumenti(izraz: str, naslovi_spr: dict[str, int]) -> Zaporedje:
 	i_vejice = poišči_spredaj(izraz, ',')
 	while i_vejice < len(izraz):
 		argument = izraz[:i_vejice].strip()
-		print(argument)
 		args.append(drevo(argument, naslovi_spr))
 		izraz = izraz[i_vejice+1:]
 		i_vejice = poišči_spredaj(izraz, ',')

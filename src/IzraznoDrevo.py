@@ -843,10 +843,12 @@ class PogojniSkok(Vozlišče):
                 f"JMPC -{abs(self.skok)}\n"
             )
 
+TOkvir = TypeVar("TOkvir", bound="Okvir")
+
 class PogojniStavek(Vozlišče):
     pogoj: Vozlišče
-    resnica: Vozlišče
-    laž: Vozlišče
+    resnica: TOkvir
+    laž: TOkvir
 
     def __init__(self, pogoj: Vozlišče, resnica: Vozlišče, laž: Vozlišče):
         self.pogoj = pogoj
@@ -882,9 +884,12 @@ class PogojniStavek(Vozlišče):
             globina * "  " + "če (\n" +
             self.pogoj.drevo(globina +  1) +
             globina * "  " + ")\n" +
-            self.resnica.drevo(globina) +
-            globina * "  " + "čene\n" +
-            self.laž.drevo(globina)
+            self.resnica.drevo(globina) + (
+                globina * "  " + "čene\n" +
+                self.laž.drevo(globina)
+                if self.laž.zaporedje != Prazno()
+                else ""
+            )
         )
 
     def optimiziran(self, nivo: int = 0) -> Vozlišče:
@@ -915,8 +920,6 @@ class PogojniStavek(Vozlišče):
             Skok(resnica_len),
             self.resnica
         ).prevedi()
-
-TOkvir = TypeVar("TOkvir", bound="Okvir")
 
 class Zanka(Vozlišče):
     pogoj: Vozlišče
@@ -1036,6 +1039,10 @@ class Zaporedje(Vozlišče):
 
     def optimiziran(self, nivo: int = 0) -> TIzraz:
         opti = Zaporedje(*(izraz.optimiziran(nivo) for izraz in self.zaporedje))
+
+        if len(opti.zaporedje) == 0:
+            return Prazno()
+
         return opti
 
     def prevedi(self) -> str:
