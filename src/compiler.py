@@ -45,6 +45,15 @@ konstante = {
 	"K":   0.11494204485329620070,
 }
 
+spremenljivke_stack: list[dict[str, Spremenljivka]] = []
+funkcije_stack: list[dict[str, Funkcija]] = []
+spremenljivke: dict[str, Spremenljivka] = {}
+funkcije: dict[str, Funkcija] = {}
+vrh_stacka = lambda: (
+	Zaporedje(*spremenljivke.values()).sprememba_stacka() +
+	Zaporedje(*funkcije.values()).sprememba_stacka()
+)
+
 
 def main(argc: int, argv: list[str]) -> int:
 	if argc == 3:
@@ -55,7 +64,7 @@ def main(argc: int, argv: list[str]) -> int:
 	with open(argv[1], "r") as file:
 #		try:
 			vsebina = file.read()
-			korenski_okvir = okvir(vsebina, dict())
+			korenski_okvir = okvir(vsebina)
 #		except Exception as e:
 #			print(e)
 #			return 2
@@ -83,30 +92,42 @@ def main(argc: int, argv: list[str]) -> int:
 	with open(argv[2], "w") as file:
 		file.write(assembler)
 
-def okvir(izraz: str, naslovi_staršev: dict[str, int]) -> Okvir:
+def okvir(izraz: str) -> Okvir:
 	print(izraz, "\n,")
-	naslovi_spr = dict()
-	zap = zaporedje(izraz, naslovi_staršev, naslovi_spr)
-	return Okvir(zap, len(naslovi_spr))
 
-def zaporedje(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Zaporedje:
+	spremenljivke_stack.append({})
+	funkcije_stack.append({})
+
+	zap = zaporedje(izraz)
+
+	length  = sum(spr.sprememba_stacka() for spr in spremenljivke_stack[-1].values())
+	length += sum(fun.sprememba_stacka() for fun in funkcije_stack[-1].values())
+
+	for ime in spremenljivke_stack[-1].keys():
+		del spremenljivke[ime]
+	for ime in funkcije_stack[-1].keys():
+		del funkcije[ime]
+	spremenljivke_stack.pop()
+
+	return Okvir(zap, length)
+
+def zaporedje(izraz: str) -> Zaporedje:
 	izrazi: list[Vozlišče] = []
 
 	i_ločila = min(poišči_spredaj(izraz, '\n'), poišči_spredaj(izraz, ';'))
 	while i_ločila < len(izraz):
 		prvi_stavek = izraz[:i_ločila].split('#')[0].strip()
 		if prvi_stavek != "":
-			izrazi.append(stavek(prvi_stavek, naslovi_staršev, naslovi_spr))
+			izrazi.append(stavek(prvi_stavek))
 		izraz = izraz[i_ločila+1:].strip()
 		i_ločila = min(poišči_spredaj(izraz, '\n'), poišči_spredaj(izraz, ';'))
 
 	if izraz != "":
-		izrazi.append(stavek(izraz, naslovi_staršev, naslovi_spr))
+		izrazi.append(stavek(izraz))
 
 	return Zaporedje(*izrazi)
 
-def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, int]) -> Prirejanje:
-	vsi_naslovi = naslovi_staršev | naslovi_spr
+def stavek(izraz: str) -> Prirejanje:
 	operator: Izraz = None
 	razdeljen = ""
 
@@ -120,14 +141,18 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 		razdeljen = [izraz[:lokacija], izraz[lokacija+2:]]
 		operator = PRIREJALNI[operatorji[lokacije.index(lokacija)]]
 	elif izraz.startswith('{') and izraz.endswith('}'):
-		return okvir(izraz[1:-1], vsi_naslovi)
+		return okvir(izraz[1:-1])
 	elif izraz.startswith("natisni(") and izraz.endswith(")"):
 		notranji_izraz = izraz[len("natisni(") : -len(")")]
-		return Natisni(argumenti(notranji_izraz, vsi_naslovi))
+		return Natisni(argumenti(notranji_izraz))
 	elif izraz.startswith("če") and izraz.endswith("}"):
-		return pogojni_stavek(izraz, vsi_naslovi)
+		return pogojni_stavek(izraz)
 	elif izraz.startswith("dokler") and izraz.endswith("}"):
-		return zanka(izraz, vsi_naslovi)
+		return zanka(izraz)
+	elif izraz.startswith("funkcija") and izraz.endswith("}"):
+		return funkcija(izraz)
+	elif izraz.startswith("vrni"):
+		return Prirejanje(spremenljivke["vrni"], drevo(izraz[len("vrni"):]))
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -142,26 +167,25 @@ def stavek(izraz: str, naslovi_staršev: dict[str, int], naslovi_spr: dict[str, 
 		ime = razdeljen[0]
 
 		if ime not in konstante:
-			naslov = vsi_naslovi.get(ime)
+			naslov = spremenljivke.get(ime)
 			
 			if naslov == None:
-				naslovi_spr[ime] = len(vsi_naslovi)
-				vsi_naslovi = naslovi_staršev | naslovi_spr
+				spr = Spremenljivka(ime, vrh_stacka())
+				spremenljivke_stack[-1][ime] = spr
+				spremenljivke[ime] = spr
 
-			#print(naslovi_staršev, naslovi_spr, razdeljen[0])
-			
-			drev = drevo(razdeljen[1], vsi_naslovi)
+			drev = drevo(razdeljen[1])
 
 			if (operator != None): 
-				drev = operator(Spremenljivka(ime, vsi_naslovi[ime]), drev)
+				drev = operator(spremenljivke[ime], drev)
 
-			return Prirejanje(Spremenljivka(ime, vsi_naslovi[ime]), drev)
+			return Prirejanje(spremenljivke[ime], drev)
 		else:
 			raise Exception(f"'{ime}' je konstanta.")
 	else:
 		raise Exception(f"Neveljavno ime: '{razdeljen[0]}'")
 
-def pogojni_stavek(izraz: str, naslovi_spr: dict[str, int]) -> PogojniStavek:
+def pogojni_stavek(izraz: str, ) -> PogojniStavek:
 	čene = poišči_spredaj(izraz, "čene")
 	pogoj_resnica = izraz
 	laž = "{}"
@@ -177,15 +201,14 @@ def pogojni_stavek(izraz: str, naslovi_spr: dict[str, int]) -> PogojniStavek:
 
 	oklepaj = poišči_spredaj(laž, '{')
 	zaklepaj = poišči_zadaj(laž, '}')
-	#laž = laž[oklepaj+1:zaklepaj]
 
 	return PogojniStavek(
-		drevo(pogoj, naslovi_spr),
-		okvir(resnica, naslovi_spr),
-		okvir(laž, naslovi_spr)
+		drevo(pogoj),
+		okvir(resnica),
+		okvir(laž)
 	)
 
-def zanka(izraz: str, naslovi_spr: dict[str, int]) -> Zanka:
+def zanka(izraz: str) -> Zanka:
 	izraz = izraz.strip()
 
 	oklepaj  = poišči_zadaj(izraz, '{')
@@ -194,41 +217,90 @@ def zanka(izraz: str, naslovi_spr: dict[str, int]) -> Zanka:
 	pogoj = izraz[len("dokler"):oklepaj]
 	telo = izraz[oklepaj+1:zaklepaj]
 
-	nove_spr = dict()
-	pogoj = drevo(pogoj, naslovi_spr)
-	telo = zaporedje(telo, naslovi_spr, nove_spr)
+	nove_spr = {}
+	pogoj = drevo(pogoj)
+	telo = zaporedje(telo)
 
 	return Okvir(Zanka(pogoj, telo), len(nove_spr))
 
-def drevo(izraz: str, naslovi_spr: dict[str, int]) -> Izraz:
+def funkcija(izraz: str):
+	global spremenljivke
+
+	args: list[Spremenljivka] = []
+
+	prejšnje_spr = spremenljivke.copy()
+	spr_funkcije = {
+		"vrni": Spremenljivka("vrni", len(spremenljivke))
+	}
+
+	vrh_stacka_f = lambda: vrh_stacka() + Zaporedje(*spr_funkcije.values()).sprememba_stacka()
+
+	oklepaj  = poišči_spredaj(izraz, '(')
+	zaklepaj = poišči_spredaj(izraz, ')')
+
+	ime_funkcije = izraz[len("funkcija"):oklepaj].strip()
+
+	for argument in map(lambda a: a.strip(), izraz[oklepaj+1:zaklepaj].split(',')):
+		if argument not in spr_funkcije:
+			spr_funkcije[argument] = Spremenljivka(argument, vrh_stacka_f())
+		else:
+			raise Exception("Imena argumentov morajo biti unikatna.")
+		args.append(spr_funkcije[argument])
+
+	oklepaj  = poišči_spredaj(izraz, '{')
+	zaklepaj = poišči_zadaj(izraz, '}')
+
+	spremenljivke |= spr_funkcije
+	spremenljivke_stack.append(spr_funkcije)
+	telo = zaporedje(izraz[oklepaj+1:zaklepaj])
+	spremenljivke_stack.pop()
+	spremenljivke = prejšnje_spr
+
+	fun = Funkcija(ime_funkcije, spr_funkcije["vrni"], args, telo, len(spr_funkcije))
+	funkcije_stack[-1][ime_funkcije] = fun
+	funkcije[ime_funkcije] = fun
+	return fun
+
+def funkcijski_klic(izraz: str) -> Zaporedje:
+	oklepaj  = poišči_spredaj(izraz, '(')
+	zaklepaj = poišči_spredaj(izraz, ')')
+
+	ime = izraz[:oklepaj].strip()
+	funkcija = funkcije[ime]
+
+	args = argumenti(izraz[oklepaj+1:zaklepaj])
+
+	return FunkcijskiKlic(funkcija, args)
+
+def drevo(izraz: str) -> Izraz:
 	izraz = izraz.strip()
 
-	return disjunktivni(izraz, naslovi_spr)
+	return disjunktivni(izraz)
 
-def disjunktivni(izraz: str, naslovi_spr: dict[str, int]) -> Disjunkcija:
+def disjunktivni(izraz: str) -> Disjunkcija:
 	izraz = izraz.strip()
 	lokacija = poišči_zadaj(izraz, '|')
 
 	if lokacija == -1:
-		return konjunktivni(izraz, naslovi_spr)
+		return konjunktivni(izraz)
 
 	return Disjunkcija(
-		disjunktivni(izraz[:lokacija], naslovi_spr), 
-		konjunktivni(izraz[lokacija+1:], naslovi_spr)
+		disjunktivni(izraz[:lokacija]), 
+		konjunktivni(izraz[lokacija+1:])
 	)
 
-def konjunktivni(izraz: str, naslovi_spr: dict[str, int]) -> Konjunkcija:
+def konjunktivni(izraz: str) -> Konjunkcija:
 	lokacija = poišči_zadaj(izraz, '&')
 
 	if lokacija == -1:
-		return primerjalni(izraz, naslovi_spr)
+		return primerjalni(izraz)
 
 	return Konjunkcija(
-		konjunktivni(izraz[:lokacija], naslovi_spr), 
-		primerjalni(izraz[lokacija+1:], naslovi_spr)
+		konjunktivni(izraz[:lokacija]), 
+		primerjalni(izraz[lokacija+1:])
 	)
 
-def primerjalni(izraz: str, naslovi_spr: dict[str, int]) -> Večje | Enako | Disjunkcija:
+def primerjalni(izraz: str, ) -> Večje | Enako | Disjunkcija:
 	operatorji = list(PRIMERJALNI.keys())
 	lokacije = [ poišči_zadaj(izraz, op) for op in operatorji ]
 
@@ -236,69 +308,69 @@ def primerjalni(izraz: str, naslovi_spr: dict[str, int]) -> Večje | Enako | Dis
 	lokacija = max(lokacije)
 
 	if lokacija == -1:
-		return aditivni(izraz, naslovi_spr)
+		return aditivni(izraz)
 
 	operator = operatorji[lokacije.index(lokacija)]
 
 	return PRIMERJALNI[operator](
-		konjunktivni(izraz[:lokacija], naslovi_spr), 
-		aditivni(izraz[lokacija+len(operator):], naslovi_spr)
+		konjunktivni(izraz[:lokacija]), 
+		aditivni(izraz[lokacija+len(operator):])
 	)
 
-def aditivni(izraz: str, naslovi_spr: dict[str, int]) -> Seštevanje:
+def aditivni(izraz: str) -> Seštevanje:
 	plus  = poišči_zadaj(izraz, '+')
 	minus = poišči_zadaj(izraz, '-')
 
 	if plus == -1 and minus == -1:
 		# ni ne '+', ne '-'
-		return multiplikativni(izraz, naslovi_spr)
+		return multiplikativni(izraz)
 	elif plus > minus:
 		# '+' ima prednost
-		return Seštevanje(aditivni(izraz[:plus], naslovi_spr), 
-						  multiplikativni(izraz[plus+1:], naslovi_spr))
+		return Seštevanje(aditivni(izraz[:plus]), 
+						  multiplikativni(izraz[plus+1:]))
 	elif minus > plus:
 		# '-' ima prednost 
 		if minus == 0:
 			# negacija na začetku izraza
-			return multiplikativni(izraz, naslovi_spr)
+			return multiplikativni(izraz)
 		elif izraz[minus-1] in ŠTEVILSKI:
 			# negacija
 			return ŠTEVILSKI[izraz[minus-1]](
-				aditivni(izraz[:minus-1], naslovi_spr), 
-				multiplikativni(izraz[minus:], naslovi_spr)
+				aditivni(izraz[:minus-1]), 
+				multiplikativni(izraz[minus:])
 			)
 		else:
 			# odštevanje
-			return Odštevanje(aditivni(izraz[:minus], naslovi_spr), 
-							  multiplikativni(izraz[minus+1:], naslovi_spr))
+			return Odštevanje(aditivni(izraz[:minus]), 
+							  multiplikativni(izraz[minus+1:]))
 
-def multiplikativni(izraz: str, naslovi_spr: dict[str, int]) -> float:
+def multiplikativni(izraz: str) -> float:
 	krat    = poišči_zadaj(izraz, '*')
 	deljeno = poišči_zadaj(izraz, '/')
 	modulo  = poišči_zadaj(izraz, '%')
 
 	if krat == -1 and deljeno == -1 and modulo == -1:
 		# ni ne '+', ne'/', ne '%
-		return potenčni(izraz, naslovi_spr)
+		return potenčni(izraz)
 	elif krat > deljeno and krat > modulo:
 		# '*' ima prednost
-		return Množenje(multiplikativni(izraz[:krat], naslovi_spr), potenčni(izraz[krat+1:], naslovi_spr))
+		return Množenje(multiplikativni(izraz[:krat]), potenčni(izraz[krat+1:]))
 	elif deljeno > krat and deljeno > modulo:
 		# '/' ima prednost
-		return Deljenje(multiplikativni(izraz[:deljeno], naslovi_spr), potenčni(izraz[deljeno+1:], naslovi_spr))
+		return Deljenje(multiplikativni(izraz[:deljeno]), potenčni(izraz[deljeno+1:]))
 	elif modulo > krat and modulo > deljeno:
 		# '%' ima prednost
-		return Modulo(multiplikativni(izraz[:modulo], naslovi_spr), potenčni(izraz[modulo+1:], naslovi_spr))
+		return Modulo(multiplikativni(izraz[:modulo]), potenčni(izraz[modulo+1:]))
 
-def potenčni(izraz: str, naslovi_spr: dict[str, int]) -> Potenca:
+def potenčni(izraz: str) -> Potenca:
 	na = poišči_zadaj(izraz, '^')
 
 	if na == -1:
 		# ni znaka '^'
-		return osnovni(izraz, naslovi_spr)
-	return Potenca(potenčni(izraz[:na], naslovi_spr), potenčni(izraz[na+1:], naslovi_spr))
+		return osnovni(izraz)
+	return Potenca(potenčni(izraz[:na]), potenčni(izraz[na+1:]))
 
-def osnovni(izraz: str, naslovi_spr: dict[str, int]) -> float:
+def osnovni(izraz: str) -> float:
 	izraz = izraz.strip()
 
 	if len(izraz) == 0:
@@ -307,35 +379,41 @@ def osnovni(izraz: str, naslovi_spr: dict[str, int]) -> float:
 		return Resnica()
 	if izraz == "laž":
 		return Laž()
-	
+
 	if izraz.startswith("!"):
-		return Zanikaj(drevo(izraz[1:], naslovi_spr))
+		return Zanikaj(drevo(izraz[1:]))
 	if izraz.startswith("(") and izraz.endswith(")"):
-		return drevo(izraz[1:-1], naslovi_spr)
+		return drevo(izraz[1:-1])
 	if izraz.startswith('"') and izraz.endswith('"'):
 		return Niz(izraz[1:-1])
+	
+	oklepaj  = poišči_spredaj(izraz, '(')
+	ime = izraz[:oklepaj].strip()
+
+	if ime in funkcije:
+		return funkcijski_klic(izraz)
 
 	try:
 		return Število(float(izraz))
 	except Exception:
 		if izraz in konstante:
 			return Število(konstante[izraz])
-		elif izraz in naslovi_spr:
-			return Spremenljivka(izraz, naslovi_spr[izraz])
+		elif izraz in spremenljivke:
+			return spremenljivke[izraz]
 		else:
 			raise Exception(f"'{izraz}' ni definiran.")
 
-def argumenti(izraz: str, naslovi_spr: dict[str, int]) -> Zaporedje:
+def argumenti(izraz: str) -> Zaporedje:
 	args: list[Vozlišče] = []
 
 	i_vejice = poišči_spredaj(izraz, ',')
 	while i_vejice < len(izraz):
 		argument = izraz[:i_vejice].strip()
-		args.append(drevo(argument, naslovi_spr))
+		args.append(drevo(argument))
 		izraz = izraz[i_vejice+1:]
 		i_vejice = poišči_spredaj(izraz, ',')
 
-	args.append(drevo(izraz, naslovi_spr))
+	args.append(drevo(izraz))
 	
 	return Zaporedje(*args)
 

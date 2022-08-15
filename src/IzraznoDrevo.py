@@ -67,6 +67,31 @@ class Prazno(Vozlišče):
     def prevedi(self) -> str:
         return ""
 
+class Pop(Vozlišče):
+    times: int
+
+    def __init__(self, times = 1) -> None:
+        self.times = times
+
+    def sprememba_stacka(self) -> int:
+        return -self.times
+
+    def __str__(self) -> str:
+        return f"pop * {self.times}"
+
+    def __eq__(self, o: object) -> bool:
+        return type(o) is Pop and self.times == o.times
+
+    def drevo(self, globina: int = 0) -> str:
+        return globina * "  " + f"{self}\n"
+
+    def optimiziran(self, _: int = 0) -> TVozlišče:
+        return Pop(self.times)
+
+    def prevedi(self) -> str:
+        return "POP\n" * self.times
+
+
 class Niz(Vozlišče):
     niz: str
 
@@ -1020,7 +1045,7 @@ class Prirejanje(Vozlišče):
     def prevedi(self) -> str:
         return (
             self.izraz.prevedi() +
-            f"STORE @{self.spremenljivka.naslov}\n"
+            f"STOR @{self.spremenljivka.naslov}\n"
         )
 
 class Zaporedje(Vozlišče):
@@ -1091,9 +1116,6 @@ class Okvir(Vozlišče):
         self.zaporedje = zaporedje
         self.št_spr = št_spr
 
-        if zaporedje.sprememba_stacka() != 0:
-            raise Exception(f"Napačna velikost okvirja:\n{zaporedje.drevo()}")
-
     def sprememba_stacka(self) -> int:
         return 0
 
@@ -1114,39 +1136,83 @@ class Okvir(Vozlišče):
         return (
             "PUSH #0\n" * self.št_spr +
             self.zaporedje.prevedi() +
-            "POP\n" * self.št_spr
+            "POP\n" * (self.št_spr + self.zaporedje.sprememba_stacka())
         )
 
-class FunkcijskiKlic(Vozlišče):
+class Funkcija(Vozlišče):
     ime: str
-    argumenti: Zaporedje
-    okvir: Okvir
+    vrni: Spremenljivka
+    argumenti: list[Spremenljivka]
+    telo: Zaporedje
+    prostor: int
 
-    def __init__(self, ime: str, argumenti: Zaporedje, ukazi: Vozlišče):
+    def __init__(self, ime: str, vrni: Spremenljivka, argumenti: list[Spremenljivka], telo: Zaporedje, prostor: int):
         self.ime = ime
+        self.vrni = vrni
         self.argumenti = argumenti
-        self.okvir = ukazi
+        self.telo = telo
+        self.prostor = prostor
 
     def sprememba_stacka(self) -> int:
-        return 0
+        return self.prostor
 
     def drevo(self, globina: int = 0) -> str:
         return (
-            globina * "  " + "{\n" +
-            self.zaporedje.drevo(globina+1) +
-            globina * "  " + "}\n"
+            globina * "  " + f"funkcija {self.ime}(" +
+            ", ".join(str(arg) for arg in self.argumenti) +
+            ") {\n" +
+            self.telo.drevo(globina + 1) +
+            globina * "  " + "}"
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return Funkcija(
+            self.ime,
+            self.vrni,
+            [ arg.optimiziran(nivo) for arg in self.argumenti ], 
+            self.telo.optimiziran(nivo),
+            self.prostor
+        )
+
+    def prevedi(self) -> str:
+        return Število(0).prevedi() * self.sprememba_stacka()
+
+class FunkcijskiKlic(Vozlišče):
+    funkcija: Funkcija
+    argumenti: Zaporedje
+
+    def __init__(self, funkcija: Funkcija, argumenti: list[Vozlišče]) -> None:
+        self.funkcija = funkcija
+        self.argumenti = argumenti
+
+    def sprememba_stacka(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + f"{self.funkcija.ime}(\n" +
+            self.argumenti.drevo(globina + 1) +
+            globina * "  " + ")\n"
         )
 
     def optimiziran(self, nivo: int = 0) -> TVozlišče:
         return FunkcijskiKlic(
-            self.ime, 
-            [ arg.optimiziran(nivo) for arg in self.argumenti ], 
-            self.okvir.optimiziran(nivo)
+            self.funkcija.optimiziran(nivo), 
+            self.argumenti.optimiziran(nivo)
         )
 
-    def prevedi(self) -> str:
+    def prevedi(self) -> Zaporedje:
         return (
-            self.argumenti.prevedi() +
-            self.ukaz + '\n' +
-            "POP\n" * self.argumenti.sprememba_stacka()
+            Zaporedje(
+                *(
+                    Prirejanje(spr, arg) 
+                    for spr, arg 
+                    in zip(self.funkcija.argumenti, self.argumenti.zaporedje)
+                ),
+                Okvir(
+                    self.funkcija.telo,
+                    self.funkcija.telo.sprememba_stacka()
+                ),
+                self.funkcija.vrni, # vrednost, ki jo funkcija vrne
+            ).prevedi()
         )

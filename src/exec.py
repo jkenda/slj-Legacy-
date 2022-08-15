@@ -13,7 +13,7 @@ class Ukaz(Enum):
     POS   = auto()
     ZERO  = auto()
     LOAD  = auto()
-    STORE = auto()
+    STOR = auto()
     PRINT = auto()
 
 class UkazPodatek:
@@ -53,7 +53,7 @@ def run(program: list[UkazPodatek], print_stack: bool):
             stack[-1] = RESNICA if stack[-1] == 0 else LAŽ
         elif ukaz.ukaz is Ukaz.LOAD:
             stack.append(stack[ukaz.podatek])
-        elif ukaz.ukaz is Ukaz.STORE:
+        elif ukaz.ukaz is Ukaz.STOR:
             stack[ukaz.podatek] = stack[-1]
             stack.pop()
         elif ukaz.ukaz is Ukaz.PRINT:
@@ -121,9 +121,9 @@ def main(argc: int, argv: list[str]) -> int:
                 program.append(UkazPodatek(Ukaz.LOAD, int(ostanek[1:])))
             elif ukaz == "POP":
                 program.append(UkazPodatek(Ukaz.POP))
-            elif ukaz == "STORE":
+            elif ukaz == "STOR":
                 ostanek = vrstica[len(ukaz)+1:]
-                program.append(UkazPodatek(Ukaz.STORE, int(ostanek[1:])))
+                program.append(UkazPodatek(Ukaz.STOR, int(ostanek[1:])))
             elif ukaz in ["PRINTN", "PRINTS"]:
                 ostanek = vrstica[len(ukaz)+1:]
                 program.append(UkazPodatek(Ukaz.PRINT))

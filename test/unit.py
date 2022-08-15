@@ -148,7 +148,7 @@ def prirejanje():
     assert(p2.drevo(1) == f"  x @0 =\n{Število(3).drevo(2)}")
     assert(p2.optimiziran(1) == p3.optimiziran(1))
     assert(p2.prevedi() == Število(3).prevedi())
-    assert(p4.prevedi() == Število(3).prevedi() + "STORE @0\nPOP\n")
+    assert(p4.prevedi() == Število(3).prevedi() + "STOR @0\nPOP\n")
     print("OK")
 
 def zaporedje():

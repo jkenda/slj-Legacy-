@@ -16,7 +16,7 @@ enum Ukaz
     POS,
     ZERO,
     LOAD,
-    STORE,
+    STOR,
     PRINTN,
     PRINTS,
     ADD,
@@ -35,7 +35,7 @@ const char *imena[] = {
     "POS   ",
     "ZERO  ",
     "LOAD  ",
-    "STORE ",
+    "STOR  ",
     "PRINTN",
     "PRINTS",
     "ADD   ",
@@ -115,7 +115,7 @@ void run(vector<UkazPodatek> &program, bool print_stack)
         case LOAD:
             stack.push_back(stack[ukaz.podatek.i]);
             break;
-        case STORE:
+        case STOR:
             stack[ukaz.podatek.i] = stack.back();
             stack.pop_back();
             break;
@@ -282,9 +282,9 @@ int main(int argc, char **argv)
             ostanek = vrstica.substr(ukaz.length()+2);
             program.push_back({ LOAD, stoi(ostanek) });
         }
-        else if (ukaz == "STORE") {
+        else if (ukaz == "STOR") {
             ostanek = vrstica.substr(ukaz.length()+2);
-            program.push_back({ STORE, stoi(ostanek) });
+            program.push_back({ STOR, stoi(ostanek) });
         }
         else if (ukaz == "PRINTN") {
             program.push_back({ PRINTN });
@@ -311,6 +311,7 @@ int main(int argc, char **argv)
             program.push_back({ POW });
         }
         else {
+            cerr << "Nepričakovan ukaz: " << ukaz << '\n';
             throw exception();
         }
     }
