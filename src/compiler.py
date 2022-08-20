@@ -149,7 +149,7 @@ def stavek(izraz: str) -> Prirejanje:
 	elif izraz.startswith("funkcija") and izraz.endswith("}"):
 		return funkcija(izraz)
 	elif izraz.startswith("vrni"):
-		return Prirejanje(spremenljivke["vrni"], drevo(izraz[len("vrni"):]), znotraj_funkcije)
+		return Vrni(Prirejanje(spremenljivke["vrni"], drevo(izraz[len("vrni"):]), znotraj_funkcije))
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -446,12 +446,23 @@ def postprocesiran(ukazi: str) -> str:
 	postproc = ""
 
 	vrstice = ukazi.split('\n')
-	oznake_funkcij = {}
+	oznake_vrstic = {}
 
+	# nadomesti "vrni" z JUMP x
+	i = 0
+	while i < len(vrstice):
+		if vrstice[i] == "return":
+			konec = i + 1
+			while not vrstice[konec].startswith(".0konec"): konec += 1
+			vrstice[i] = f"JUMP {vrstice[konec]}"
+
+		i += 1
+
+	# preberi oznake vrstic in jih odstrani
 	i = 0
 	while i < len(vrstice):
 		if vrstice[i].startswith('.'):
-			oznake_funkcij[vrstice[i]] = i
+			oznake_vrstic[vrstice[i]] = i
 			vrstice.pop(i)
 		else:
 			i += 1
@@ -467,7 +478,7 @@ def postprocesiran(ukazi: str) -> str:
 			else:
 				if razdeljen[1].startswith('.'):
 					ime = razdeljen[1]
-					absolutni_skok = oznake_funkcij[ime]
+					absolutni_skok = oznake_vrstic[ime]
 				else:
 					relativni_skok = int(razdeljen[1])
 					absolutni_skok = št_vrstice + relativni_skok

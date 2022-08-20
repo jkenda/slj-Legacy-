@@ -1124,6 +1124,31 @@ class Prirejanje(Vozlišče):
             )
         )
 
+class Vrni(Vozlišče):
+    prirejanje: Prirejanje
+
+    def __init__(self, prirejanje: Prirejanje) -> None:
+        self.prirejanje = prirejanje
+
+    def sprememba_stacka(self) -> int:
+        return 0
+
+    def drevo(self, globina: int = 0) -> str:
+        return (
+            globina * "  " + f"vrni (\n" +
+            self.prirejanje.drevo(globina + 1) +
+            globina * "  " + ")\n"
+        )
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return Vrni(self.prirejanje.optimiziran(nivo))
+
+    def prevedi(self) -> str:
+        return (
+            self.prirejanje.prevedi() +
+            "return\n"
+        )
+
 class Zaporedje(Vozlišče):
     zaporedje: list[Vozlišče]
 
@@ -1253,27 +1278,36 @@ class Funkcija(Vozlišče):
         # argumenti []
         # prejšnji odmik
 
-        zaporedje = Zaporedje(
-            NaložiOdmik(), # naloži  odmik prejšnje funkcije
+        pred = Zaporedje(
+            NaložiOdmik(), # naloži odmik prejšnje funkcije
             Vrh(
                 - NaložiOdmik().sprememba_stacka() 
                 - len(self.argumenti) 
                 - ProgramskiŠtevec().sprememba_stacka() 
                 - Število(0).sprememba_stacka()
-            ), # nastavi odmik trenutne funkcije
+            ) # nastavi odmik trenutne funkcije
+        )
+
+        telo = Zaporedje(
             Okvir(
                 self.telo,
                 self.prostor
-            ),                        # izvedi telo funkcije
+            )
+        )
+
+        za = Zaporedje(
             ShraniOdmik(),            # nastavi odmik prejšnje funkcije
             Pop(len(self.argumenti)), # počisti argumente funkcije
-            DinamičniSkok(),          # vrni se iz funkcije
+            DinamičniSkok()           # vrni se iz funkcije
         )
 
         return (
-            Skok(1 + len(zaporedje)).prevedi() + # preskoči funkcijo
-            f".{self.ime}\n" +                   # oznaka funkcije
-            zaporedje.prevedi()
+            Skok(1 + len(pred) + len(telo) + len(za)).prevedi() + # preskoči funkcijo
+            f".{self.ime}\n" + # oznaka funkcije
+            pred.prevedi() +
+            telo.prevedi() +
+            f".0konec_{self.ime}\n" +
+            za.prevedi()
         )
 
 class FunkcijskiKlic(Vozlišče):

@@ -1,7 +1,7 @@
 COMPILER := src/compiler.py
 LEVEL := 2
 
-all: bool če opti praštevila test
+all: bool če opti praštevila rekurzija test
 
 bool: $(COMPILER) primeri/bool.slj
 	$(COMPILER) primeri/bool.slj bin/bool.as $(LEVEL)
