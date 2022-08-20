@@ -8,6 +8,11 @@ TIzraz = TypeVar("TIzraz", bound="Izraz")
 
 class Vozlišče(ABC):
 
+    def __len__(self):
+        ukazi = self.prevedi()
+        if '\n' not in ukazi: return 0
+        return len(list(filter(lambda u: not u.startswith('.'), ukazi.strip().split('\n'))))
+
     @abstractmethod
     def sprememba_stacka(self) -> int:
         pass
@@ -90,6 +95,50 @@ class Pop(Vozlišče):
 
     def prevedi(self) -> str:
         return "POP\n" * self.times
+
+class Vrh(Vozlišče):
+    odmik: int
+
+    def __init__(self, odmik: int) -> None:
+        self.odmik = odmik
+
+    def sprememba_stacka(self) -> int:
+        return 0
+
+    def drevo(self, globina: int = 0) -> str:
+        return ""
+
+    def optimiziran(self, _: int = 0) -> TVozlišče:
+        return Vrh(self.odmik)
+
+    def prevedi(self) -> str:
+        return f"TOP {self.odmik}\n"
+
+class ShraniOdmik(Vozlišče):
+    def sprememba_stacka(self) -> int:
+        return -1
+
+    def drevo(self, globina: int = 0) -> str:
+        return ""
+
+    def optimiziran(self, _: int = 0) -> TVozlišče:
+        return ShraniOdmik()
+
+    def prevedi(self) -> str:
+        return f"SOFF\n"
+
+class NaložiOdmik(Vozlišče):
+    def sprememba_stacka(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return ""
+
+    def optimiziran(self, _: int = 0) -> TVozlišče:
+        return ShraniOdmik()
+
+    def prevedi(self) -> str:
+        return f"LOFF\n"
 
 
 class Niz(Vozlišče):
@@ -208,32 +257,41 @@ class Število(Vozlišče):
 class Spremenljivka(Vozlišče):
     ime: str
     naslov: int
+    z_odmikom: bool
 
-    def __init__(self, ime: str, naslov: int):
+    def __init__(self, ime: str, naslov: int, z_odmikom: bool):
         self.ime = str(ime)
         self.naslov = int(naslov)
+        self.z_odmikom = z_odmikom
 
     def sprememba_stacka(self) -> int:
         return 1
 
     def __str__(self) -> str:
-        return f"{self.ime} @{self.naslov}"
+        if self.z_odmikom:
+            return f"{self.ime} +{self.naslov}"
+        else:
+            return f"{self.ime} @{self.naslov}"
 
     def __eq__(self, o: object) -> bool:
         return (
             type(self) is type(o) 
             and self.ime == o.ime
             and self.naslov == o.naslov
+            and self.z_odmikom == o.z_odmikom
         )
 
     def drevo(self, globina: int = 0) -> str:
         return globina * "  " + f"{self}\n"
 
     def optimiziran(self, _: int = 0) -> TVozlišče:
-        return Spremenljivka(self.ime, self.naslov)
+        return Spremenljivka(self.ime, self.naslov, self.z_odmikom)
 
     def prevedi(self) -> str:
-        return f"LOAD @{self.naslov}\n"
+        if self.z_odmikom:
+            return f"LDOF +{self.naslov}\n"
+        else:
+            return f"LOAD @{self.naslov}\n"
 
 class Resnica(Vozlišče):
     def __eq__(self, __o: object) -> bool:
@@ -793,20 +851,35 @@ class ManjšeEnako(Izraz):
     def prevedi(self) -> str:
         return VečjeEnako(self.r, self.l).prevedi()
 
-class Skok(Vozlišče):
-    skok: int
+class ProgramskiŠtevec(Vozlišče):
+    odmik: int
 
-    def __init__(self, skok: int):
+    def __init__(self, odmik: int = 0) -> None:
+        self.odmik = odmik
+    
+    def sprememba_stacka(self) -> int:
+        return 1
+
+    def drevo(self, globina: int = 0) -> str:
+        return "  " * globina + f"(PC {self.odmik})"
+
+    def optimiziran(self, nivo: int = 0) -> TVozlišče:
+        return ProgramskiŠtevec(self.odmik)
+
+    def prevedi(self) -> str:
+        return f"PC {self.odmik}\n"
+
+class Skok(Vozlišče):
+    skok: int | str
+
+    def __init__(self, skok: int | str):
         self.skok = skok
 
     def sprememba_stacka(self) -> int:
         return 0
 
     def drevo(self, globina: int = 0) -> str:
-        if self.skok >= 0:
-            return globina * "  " + f"skok +{abs(self.skok)}\n"
-        else:
-            return globina * "  " + f"skok -{abs(self.skok)}\n"
+        return globina * "  " + f"skok {self.skok}\n"
 
     def optimiziran(self, nivo: int = 0) -> TVozlišče:
         if self.skok == 0:
@@ -814,12 +887,21 @@ class Skok(Vozlišče):
         return Skok(self.skok)
 
     def prevedi(self) -> str:
-        if self.skok == 0:
-            return ""
-        elif self.skok > 0:
-            return f"JUMP +{abs(self.skok)}\n"
-        else:
-            return f"JUMP -{abs(self.skok)}\n"
+        return f"JUMP {self.skok}\n"
+
+class DinamičniSkok(Vozlišče):
+    def sprememba_stacka(self) -> int:
+        return -1
+
+    def drevo(self, globina: int = 0) -> str:
+        return globina * "  " + f"skok {self.skok}\n"
+
+    def optimiziran(self, _: int = 0) -> TVozlišče:
+        return DinamičniSkok()
+
+    def prevedi(self) -> str:
+        return "JMPD\n"
+
 
 class PogojniSkok(Vozlišče):
     pogoj: Vozlišče
@@ -833,7 +915,7 @@ class PogojniSkok(Vozlišče):
             raise Exception(f"Napačna velikost pogoja:\n{pogoj.drevo()}")
 
     def sprememba_stacka(self) -> int:
-        return self.pogoj.sprememba_stacka() - 1
+        return 0
 
     def drevo(self, globina: int = 0) -> str:
         if self.skok >= 0:
@@ -855,18 +937,10 @@ class PogojniSkok(Vozlišče):
         return PogojniSkok(self.pogoj, self.skok)
 
     def prevedi(self) -> str:
-        if self.skok == 0:
-            return ""
-        elif self.skok > 0:
-            return (
-                self.pogoj.prevedi() +
-                f"JMPC +{abs(self.skok)}\n"
-            )
-        else:
-            return (
-                self.pogoj.prevedi() +
-                f"JMPC -{abs(self.skok)}\n"
-            )
+        return (
+            self.pogoj.prevedi() +
+            f"JMPC {self.skok}\n"
+        )
 
 TOkvir = TypeVar("TOkvir", bound="Okvir")
 
@@ -936,13 +1010,12 @@ class PogojniStavek(Vozlišče):
         return opti
 
     def prevedi(self) -> str:
-        resnica_len = len(self.resnica.prevedi().split('\n'))
-        laž_len = len(self.laž.prevedi().split('\n'))
+        skok = Skok(len(self.resnica) + 1)
 
         return Zaporedje(
-            PogojniSkok(self.pogoj, laž_len + 1),
+            PogojniSkok(self.pogoj, len(self.laž) + len(skok) + 1),
             self.laž,
-            Skok(resnica_len),
+            skok,
             self.resnica
         ).prevedi()
 
@@ -998,24 +1071,24 @@ class Zanka(Vozlišče):
         return opti
 
     def prevedi(self) -> str:
-        pogoj_len = len(self.pogoj.prevedi().split('\n'))
-        telo_len = len(self.telo.prevedi().split('\n'))
-
-        return PogojniStavek(self.pogoj, 
+        return PogojniStavek(
+            self.pogoj, 
             Zaporedje(
-                self.telo, 
-                Skok(-(telo_len + pogoj_len))
-            ), 
+                self.telo,
+                Skok(-len(self.telo) - len(self.pogoj) - 2)
+            ),
             Prazno()
         ).prevedi()
 
 class Prirejanje(Vozlišče):
     spremenljivka: Spremenljivka
     izraz: Izraz
+    z_odmikom: bool
 
-    def __init__(self, spremenljivka: Spremenljivka, izraz: Izraz):
+    def __init__(self, spremenljivka: Spremenljivka, izraz: Izraz, z_odmikom: bool):
         self.spremenljivka = spremenljivka
         self.izraz = izraz
+        self.z_odmikom = z_odmikom
 
         if izraz.sprememba_stacka() != 1:
             raise Exception("Napačna velikost izraza.")
@@ -1039,13 +1112,16 @@ class Prirejanje(Vozlišče):
         )
 
     def optimiziran(self, nivo: int = 0) -> TIzraz:
-        opti = Prirejanje(self.spremenljivka, self.izraz.optimiziran(nivo))
+        opti = Prirejanje(self.spremenljivka, self.izraz.optimiziran(nivo), self.z_odmikom)
         return opti
 
     def prevedi(self) -> str:
         return (
-            self.izraz.prevedi() +
-            f"STOR @{self.spremenljivka.naslov}\n"
+            self.izraz.prevedi() + (
+                f"STOF +{self.spremenljivka.naslov}\n"
+                if self.z_odmikom
+                else f"STOR @{self.spremenljivka.naslov}\n"
+            )
         )
 
 class Zaporedje(Vozlišče):
@@ -1100,9 +1176,9 @@ class Natisni(Vozlišče):
             "".join(
                 izraz.prevedi() + 
                 (
-                    "PRINTS\n" * izraz.sprememba_stacka() 
-                        if type(izraz) is Niz 
-                        else "PRINTN\n" * izraz.sprememba_stacka()
+                    "PRTS\n" * izraz.sprememba_stacka() 
+                    if type(izraz) is Niz 
+                    else "PRTN\n" * izraz.sprememba_stacka()
                 )
                 for izraz in self.izrazi.zaporedje
             )
@@ -1133,28 +1209,26 @@ class Okvir(Vozlišče):
         return Okvir(self.zaporedje.optimiziran(nivo), self.št_spr)
 
     def prevedi(self) -> str:
-        return (
-            "PUSH #0\n" * self.št_spr +
-            self.zaporedje.prevedi() +
-            "POP\n" * (self.št_spr + self.zaporedje.sprememba_stacka())
-        )
+        return Zaporedje(
+            *([Število(0)] * self.št_spr),
+            self.zaporedje,
+            Pop(self.št_spr + self.zaporedje.sprememba_stacka())
+        ).prevedi()
 
 class Funkcija(Vozlišče):
     ime: str
-    vrni: Spremenljivka
     argumenti: list[Spremenljivka]
     telo: Zaporedje
     prostor: int
 
-    def __init__(self, ime: str, vrni: Spremenljivka, argumenti: list[Spremenljivka], telo: Zaporedje, prostor: int):
+    def __init__(self, ime: str, argumenti: list[Spremenljivka], telo: Zaporedje, prostor: int):
         self.ime = ime
-        self.vrni = vrni
         self.argumenti = argumenti
         self.telo = telo
         self.prostor = prostor
 
     def sprememba_stacka(self) -> int:
-        return self.prostor
+        return self.telo.sprememba_stacka()
 
     def drevo(self, globina: int = 0) -> str:
         return (
@@ -1162,20 +1236,45 @@ class Funkcija(Vozlišče):
             ", ".join(str(arg) for arg in self.argumenti) +
             ") {\n" +
             self.telo.drevo(globina + 1) +
-            globina * "  " + "}"
+            globina * "  " + "}\n"
         )
 
     def optimiziran(self, nivo: int = 0) -> TVozlišče:
         return Funkcija(
             self.ime,
-            self.vrni,
-            [ arg.optimiziran(nivo) for arg in self.argumenti ], 
+            self.argumenti, 
             self.telo.optimiziran(nivo),
             self.prostor
         )
 
     def prevedi(self) -> str:
-        return Število(0).prevedi() * self.sprememba_stacka()
+        # vrni
+        # pc
+        # argumenti []
+        # prejšnji odmik
+
+        zaporedje = Zaporedje(
+            NaložiOdmik(), # naloži  odmik prejšnje funkcije
+            Vrh(
+                - NaložiOdmik().sprememba_stacka() 
+                - len(self.argumenti) 
+                - ProgramskiŠtevec().sprememba_stacka() 
+                - Število(0).sprememba_stacka()
+            ), # nastavi odmik trenutne funkcije
+            Okvir(
+                self.telo,
+                self.prostor
+            ),                        # izvedi telo funkcije
+            ShraniOdmik(),            # nastavi odmik prejšnje funkcije
+            Pop(len(self.argumenti)), # počisti argumente funkcije
+            DinamičniSkok(),          # vrni se iz funkcije
+        )
+
+        return (
+            Skok(1 + len(zaporedje)).prevedi() + # preskoči funkcijo
+            f".{self.ime}\n" +                   # oznaka funkcije
+            zaporedje.prevedi()
+        )
 
 class FunkcijskiKlic(Vozlišče):
     funkcija: Funkcija
@@ -1197,22 +1296,18 @@ class FunkcijskiKlic(Vozlišče):
 
     def optimiziran(self, nivo: int = 0) -> TVozlišče:
         return FunkcijskiKlic(
-            self.funkcija.optimiziran(nivo), 
+            self.funkcija, 
             self.argumenti.optimiziran(nivo)
         )
 
     def prevedi(self) -> Zaporedje:
-        return (
-            Zaporedje(
-                *(
-                    Prirejanje(spr, arg) 
-                    for spr, arg 
-                    in zip(self.funkcija.argumenti, self.argumenti.zaporedje)
-                ),
-                Okvir(
-                    self.funkcija.telo,
-                    self.funkcija.telo.sprememba_stacka()
-                ),
-                self.funkcija.vrni, # vrednost, ki jo funkcija vrne
-            ).prevedi()
-        )
+        vrni = Število(0)
+        skok = Skok(f".{self.funkcija.ime}")
+        pc = ProgramskiŠtevec(1 + len(self.argumenti) + len(skok))
+
+        return Zaporedje(
+            vrni,           # naloži prostor za vrednost, ki jo funkcija vrača
+            pc,             # naloži naslov za vrnitev
+            self.argumenti, # naloži argumente
+            skok,           # skoči na funkcijo
+        ).prevedi()

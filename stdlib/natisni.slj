@@ -1,0 +1,22 @@
+funkcija __natisni_n(število) {
+    če število >= 1 {
+        natisni_n(število / 10)
+    }
+    __print('0' + število % 10)
+}
+
+funkcija __natisni_s(niz) {
+    for i = 0; i < velikost(niz); i++ {
+        __print(niz[i])
+    }
+}
+
+funkcija natisni(nekaj) {
+    če tip(nekaj) == število {
+        __natisni_n(nekaj)
+    } čene če tip(nekaj) == niz {
+        __natisni_s(nekaj)
+    } čene {
+        __print(nekaj)
+    }
+}

@@ -10,15 +10,21 @@
 enum Ukaz
 {
     JUMP,
+    JMPD,
     JMPC,
     PUSH,
     POP,
     POS,
     ZERO,
     LOAD,
+    LDOF,
+    TOP,
+    SOFF,
+    LOFF,
     STOR,
-    PRINTN,
-    PRINTS,
+    STOF,
+    PRTN,
+    PRTS,
     ADD,
     SUB,
     MUL,
@@ -28,22 +34,28 @@ enum Ukaz
 };
 
 const char *imena[] = {
-    "JUMP  ",
-    "JMPC  ",
-    "PUSH  ",
-    "POP   ",
-    "POS   ",
-    "ZERO  ",
-    "LOAD  ",
-    "STOR  ",
-    "PRINTN",
-    "PRINTS",
-    "ADD   ",
-    "SUB   ",
-    "MUL   ",
-    "DIV   ",
-    "MOD   ",
-    "POW   ",
+    "JUMP",
+    "JMPD",
+    "JMPC",
+    "PUSH",
+    "POP ",
+    "POS ",
+    "ZERO",
+    "LOAD",
+    "LDOF",
+    "TOP ",
+    "SOFF",
+    "LOFF",
+    "STOR",
+    "STOF",
+    "PRTN",
+    "PRTS",
+    "ADD ",
+    "SUB ",
+    "MUL ",
+    "DIV ",
+    "MOD ",
+    "POW ",
 };
 
 union Podatek
@@ -81,19 +93,21 @@ void run(vector<UkazPodatek> &program, bool print_stack)
     vector<Podatek> stack;
     stack.reserve(256);
 
-    uint_fast64_t pc = 0;
+    int pc = 0;
+    int addroff = 0;
 
     while (pc < program.size())
     {
         UkazPodatek &ukaz = program[pc];
 
-        if (print_stack) 
-            cout << imena[program[pc].ukaz] << ": ";
-
         switch (ukaz.ukaz)
         {
         case JUMP:
             pc = ukaz.podatek.i;
+            break;
+        case JMPD:
+            pc = ((int) stack.back().f) - 1;
+            stack.pop_back();
             break;
         case JMPC:
             if (stack.back().f == RESNICA)
@@ -115,16 +129,33 @@ void run(vector<UkazPodatek> &program, bool print_stack)
         case LOAD:
             stack.push_back(stack[ukaz.podatek.i]);
             break;
+        case LDOF:
+            stack.push_back(stack[ukaz.podatek.i + addroff]);
+            break;
+        case TOP:
+            addroff = stack.size() + ukaz.podatek.i;
+            break;
+        case SOFF:
+            addroff = stack.back().i;
+            stack.pop_back();
+            break;
+        case LOFF:
+            stack.push_back(Podatek { addroff });
+            break;
         case STOR:
             stack[ukaz.podatek.i] = stack.back();
             stack.pop_back();
             break;
-        case PRINTN:
+        case STOF:
+            stack[ukaz.podatek.i + addroff] = stack.back();
+            stack.pop_back();
+            break;
+        case PRTN:
             if (!print_stack)
                 cout << stack.back().f;
             stack.pop_back();
             break;
-        case PRINTS: 
+        case PRTS: 
             {
                 char *top = stack.back().c;
                 if (!print_stack) {
@@ -137,47 +168,51 @@ void run(vector<UkazPodatek> &program, bool print_stack)
             stack.pop_back();
             break;
         case ADD:
-            {
-                float &b = stack.back().f; stack.pop_back();
-                float &a = stack.back().f;
-                stack.back().f = a + b;
-            }
+            stack.end()[-2].f = stack.end()[-2].f + stack.end()[-1].f;
+            stack.pop_back();
             break;
         case SUB:
-            {
-                float &b = stack.back().f; stack.pop_back();
-                float &a = stack.back().f;
-                stack.back().f = a - b;
-            }
+            stack.end()[-2].f = stack.end()[-2].f - stack.end()[-1].f;
+            stack.pop_back();
             break;
         case MUL:
-            {
-                float &b = stack.back().f; stack.pop_back();
-                float &a = stack.back().f;
-                stack.back().f = a * b;
-            }
+            stack.end()[-2].f = stack.end()[-2].f * stack.end()[-1].f;
+            stack.pop_back();
             break;
         case DIV:
-            {
-                float &b = stack.back().f; stack.pop_back();
-                float &a = stack.back().f;
-                stack.back().f = a / b;
-            }
+            stack.end()[-2].f = stack.end()[-2].f / stack.end()[-1].f;
+            stack.pop_back();
             break;
         case MOD:
-            {
-                float &b = stack.back().f; stack.pop_back();
-                float &a = stack.back().f;
-                stack.back().f = fmod(a, b);
-            }
+            stack.end()[-2].f = fmod(stack.end()[-2].f, stack.end()[-1].f);
+            stack.pop_back();
             break;
         case POW:
-            {
-                float &b = stack.back().f; stack.pop_back();
-                float &a = stack.back().f;
-                stack.back().f = pow(a, b);
-            }
+            stack.end()[-2].f = pow(stack.end()[-2].f, stack.end()[-1].f);
+            stack.pop_back();
             break;
+        }
+
+        if (print_stack) {
+            switch (program[pc].ukaz)
+            {
+            case PUSH:
+                cout << imena[program[pc].ukaz] << ' ' << program[pc].podatek.f << ": ";
+                break;
+            case LDOF:
+            case STOF:
+                cout << imena[program[pc].ukaz] << ' ' << addroff 
+                << (program[pc].podatek.i >= 0 ? "+" : "") << program[pc].podatek.i<< ": ";
+                break;
+            case TOP:
+                cout << imena[program[pc].ukaz] << ' ' 
+                <<  (program[pc].podatek.i >= 0 ? "+" : "") << program[pc].podatek.i<< ": ";
+                break;
+
+            default:
+                cout << imena[program[pc].ukaz] << ' ' << program[pc].podatek.i << ": ";
+                break;
+            }
         }
 
         if (print_stack)
@@ -219,6 +254,9 @@ int main(int argc, char **argv)
 
         besede >> ukaz;
 
+        if (print_stack)
+            cout << program.size() << ' ' << vrstica << '\n';
+
         if (ukaz[0] == '#') {
             // komentar
             continue;
@@ -228,16 +266,13 @@ int main(int argc, char **argv)
             ostanek = vrstica.substr(ukaz.length()+2);
             program.push_back({ JUMP, stoi(ostanek) - 1 });
         }
+        else if (ukaz == "JMPD") {
+            program.push_back({ JMPD });
+        }
         else if (ukaz == "JMPC") {
             // samo absolutni skoki
             ostanek = vrstica.substr(ukaz.length()+2);
             program.push_back({ JMPC, stoi(ostanek) - 1 });
-        }
-        else if (ukaz == "POS") {
-            program.push_back({ POS });
-        }
-        else if (ukaz == "ZERO") {
-            program.push_back({ ZERO });
         }
         else if (ukaz == "PUSH") {
             ostanek = vrstica.substr(ukaz.length()+1);
@@ -275,22 +310,46 @@ int main(int argc, char **argv)
                 program.push_back({ PUSH, chars });
             }
         }
-        else if (ukaz == "POP") {
-            program.push_back({ POP });
-        }
         else if (ukaz == "LOAD") {
             ostanek = vrstica.substr(ukaz.length()+2);
             program.push_back({ LOAD, stoi(ostanek) });
+        }
+        else if (ukaz == "LDOF") {
+            ostanek = vrstica.substr(ukaz.length()+2);
+            program.push_back({ LDOF, stoi(ostanek) });
         }
         else if (ukaz == "STOR") {
             ostanek = vrstica.substr(ukaz.length()+2);
             program.push_back({ STOR, stoi(ostanek) });
         }
-        else if (ukaz == "PRINTN") {
-            program.push_back({ PRINTN });
+        else if (ukaz == "STOF") {
+            ostanek = vrstica.substr(ukaz.length()+2);
+            program.push_back({ STOF, stoi(ostanek) });
         }
-        else if (ukaz == "PRINTS") {
-            program.push_back({ PRINTS });
+        else if (ukaz == "TOP") {
+            ostanek = vrstica.substr(ukaz.length()+1);
+            program.push_back({ TOP, stoi(ostanek) });
+        }
+        else if (ukaz == "LOFF") {
+            program.push_back({ LOFF });
+        }
+        else if (ukaz == "SOFF") {
+            program.push_back({ SOFF });
+        }
+        else if (ukaz == "PRTN") {
+            program.push_back({ PRTN });
+        }
+        else if (ukaz == "PRTS") {
+            program.push_back({ PRTS });
+        }
+        else if (ukaz == "POP") {
+            program.push_back({ POP });
+        }
+        else if (ukaz == "POS") {
+            program.push_back({ POS });
+        }
+        else if (ukaz == "ZERO") {
+            program.push_back({ ZERO });
         }
         else if (ukaz == "ADD") {
             program.push_back({ ADD });

@@ -49,10 +49,9 @@ spremenljivke_stack: list[dict[str, Spremenljivka]] = []
 funkcije_stack: list[dict[str, Funkcija]] = []
 spremenljivke: dict[str, Spremenljivka] = {}
 funkcije: dict[str, Funkcija] = {}
-vrh_stacka = lambda: (
-	Zaporedje(*spremenljivke.values()).sprememba_stacka() +
-	Zaporedje(*funkcije.values()).sprememba_stacka()
-)
+znotraj_funkcije = False
+
+vrh_stacka = lambda: Zaporedje(*spremenljivke.values()).sprememba_stacka()
 
 
 def main(argc: int, argv: list[str]) -> int:
@@ -93,8 +92,6 @@ def main(argc: int, argv: list[str]) -> int:
 		file.write(assembler)
 
 def okvir(izraz: str) -> Okvir:
-	print(izraz, "\n,")
-
 	spremenljivke_stack.append({})
 	funkcije_stack.append({})
 
@@ -152,7 +149,7 @@ def stavek(izraz: str) -> Prirejanje:
 	elif izraz.startswith("funkcija") and izraz.endswith("}"):
 		return funkcija(izraz)
 	elif izraz.startswith("vrni"):
-		return Prirejanje(spremenljivke["vrni"], drevo(izraz[len("vrni"):]))
+		return Prirejanje(spremenljivke["vrni"], drevo(izraz[len("vrni"):]), znotraj_funkcije)
 	else:
 		st_enacajev = izraz.count('=')
 		if st_enacajev == 1:
@@ -170,7 +167,7 @@ def stavek(izraz: str) -> Prirejanje:
 			naslov = spremenljivke.get(ime)
 			
 			if naslov == None:
-				spr = Spremenljivka(ime, vrh_stacka())
+				spr = Spremenljivka(ime, vrh_stacka(), znotraj_funkcije)
 				spremenljivke_stack[-1][ime] = spr
 				spremenljivke[ime] = spr
 
@@ -179,7 +176,7 @@ def stavek(izraz: str) -> Prirejanje:
 			if (operator != None): 
 				drev = operator(spremenljivke[ime], drev)
 
-			return Prirejanje(spremenljivke[ime], drev)
+			return Prirejanje(spremenljivke[ime], drev, znotraj_funkcije)
 		else:
 			raise Exception(f"'{ime}' je konstanta.")
 	else:
@@ -224,16 +221,17 @@ def zanka(izraz: str) -> Zanka:
 	return Okvir(Zanka(pogoj, telo), len(nove_spr))
 
 def funkcija(izraz: str):
-	global spremenljivke
+	global spremenljivke, spremenljivke_stack, znotraj_funkcije
 
 	args: list[Spremenljivka] = []
 
 	prejšnje_spr = spremenljivke.copy()
 	spr_funkcije = {
-		"vrni": Spremenljivka("vrni", len(spremenljivke))
+		"vrni": Spremenljivka("vrni", 0, True),
+		"0_PC": Spremenljivka("0_PC", 1, True),
 	}
 
-	vrh_stacka_f = lambda: vrh_stacka() + Zaporedje(*spr_funkcije.values()).sprememba_stacka()
+	vrh_stacka = lambda: Zaporedje(*spr_funkcije.values()).sprememba_stacka()
 
 	oklepaj  = poišči_spredaj(izraz, '(')
 	zaklepaj = poišči_spredaj(izraz, ')')
@@ -242,23 +240,37 @@ def funkcija(izraz: str):
 
 	for argument in map(lambda a: a.strip(), izraz[oklepaj+1:zaklepaj].split(',')):
 		if argument not in spr_funkcije:
-			spr_funkcije[argument] = Spremenljivka(argument, vrh_stacka_f())
+			spr_funkcije[argument] = Spremenljivka(argument, vrh_stacka(), True)
+			args.append(spr_funkcije[argument])
 		else:
 			raise Exception("Imena argumentov morajo biti unikatna.")
-		args.append(spr_funkcije[argument])
+
+	spr_funkcije["0_OF"] = Spremenljivka("0_OF", vrh_stacka(), True)
+
+	spr_len = len(spr_funkcije)
+
+	fun = Funkcija(ime_funkcije, args, Število(0), 0)
+	funkcije_stack[-1][ime_funkcije] = fun
+	funkcije[ime_funkcije] = fun
 
 	oklepaj  = poišči_spredaj(izraz, '{')
 	zaklepaj = poišči_zadaj(izraz, '}')
 
-	spremenljivke |= spr_funkcije
+	spremenljivke = spr_funkcije
 	spremenljivke_stack.append(spr_funkcije)
+	znotraj_funkcije = True
 	telo = zaporedje(izraz[oklepaj+1:zaklepaj])
+	znotraj_funkcije = False
+
+	for spr in spremenljivke.values(): print(str(spr), end=", ")
+	print()
+
 	spremenljivke_stack.pop()
 	spremenljivke = prejšnje_spr
 
-	fun = Funkcija(ime_funkcije, spr_funkcije["vrni"], args, telo, len(spr_funkcije))
-	funkcije_stack[-1][ime_funkcije] = fun
-	funkcije[ime_funkcije] = fun
+	fun.telo = telo
+	fun.prostor = len(spr_funkcije) - spr_len
+
 	return fun
 
 def funkcijski_klic(izraz: str) -> Zaporedje:
@@ -433,15 +445,36 @@ def predprocesiran(izraz: str) -> str:
 def postprocesiran(ukazi: str) -> str:
 	postproc = ""
 
-	for št_vrstice, vrstica in enumerate(ukazi.split('\n')):
+	vrstice = ukazi.split('\n')
+	oznake_funkcij = {}
+
+	i = 0
+	while i < len(vrstice):
+		if vrstice[i].startswith('.'):
+			oznake_funkcij[vrstice[i]] = i
+			vrstice.pop(i)
+		else:
+			i += 1
+
+	for št_vrstice, vrstica in enumerate(vrstice):
 		if vrstica == "": continue
 		razdeljen = vrstica.split(' ')
 		ukaz = razdeljen[0]
 
 		if ukaz in ["JUMP", "JMPC"]:
-			relativni_skok = int(razdeljen[1])
-			absolutni_skok = št_vrstice + relativni_skok
-			postproc += f"{ukaz} #{absolutni_skok}\n"
+			if len(razdeljen) == 1:
+				postproc += f"{ukaz}\n"
+			else:
+				if razdeljen[1].startswith('.'):
+					ime = razdeljen[1]
+					absolutni_skok = oznake_funkcij[ime]
+				else:
+					relativni_skok = int(razdeljen[1])
+					absolutni_skok = št_vrstice + relativni_skok
+				postproc += f"{ukaz} #{absolutni_skok}\n"
+		elif ukaz == "PC":
+			odmik = int(razdeljen[1])
+			postproc += f"PUSH #{št_vrstice + odmik}\n"
 		else:
 			postproc += f"{vrstica}\n"
 

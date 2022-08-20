@@ -124,7 +124,7 @@ def main(argc: int, argv: list[str]) -> int:
             elif ukaz == "STOR":
                 ostanek = vrstica[len(ukaz)+1:]
                 program.append(UkazPodatek(Ukaz.STOR, int(ostanek[1:])))
-            elif ukaz in ["PRINTN", "PRINTS"]:
+            elif ukaz in ["PRTN", "PRTS"]:
                 ostanek = vrstica[len(ukaz)+1:]
                 program.append(UkazPodatek(Ukaz.PRINT))
             else:

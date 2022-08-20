@@ -1,7 +1,7 @@
 x = 1; y = 2
 
-# izpiši absolutno vrednost
-če x == 0 {
+# izpiši razliko
+če x == y {
     natisni(0, "\n")
 } čene če x > y {
     natisni(x - y, "\n")
