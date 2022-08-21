@@ -106,11 +106,11 @@ void run(vector<UkazPodatek> &program, bool print_stack)
             pc = ukaz.podatek.i;
             break;
         case JMPD:
-            pc = ((int) stack.back().f) - 1;
+            pc = stack.back().i - 1;
             stack.pop_back();
             break;
         case JMPC:
-            if (stack.back().f == RESNICA)
+            if (stack.back().i != LAZ)
                 pc = ukaz.podatek.i;
             stack.pop_back();
             break;
@@ -194,6 +194,8 @@ void run(vector<UkazPodatek> &program, bool print_stack)
         }
 
         if (print_stack) {
+            printf("%3d | ", pc);
+
             switch (program[pc].ukaz)
             {
             case PUSH:
@@ -280,7 +282,12 @@ int main(int argc, char **argv)
             if (tip == '#') {
                 // literal
                 Podatek podatek;
-                podatek.f = stof(ostanek.substr(1));
+
+                if (ostanek.find('.') != string::npos)
+                    podatek.f = stof(ostanek.substr(1));
+                else
+                    podatek.i = stoi(ostanek.substr(1));
+
                 program.push_back({ PUSH, podatek });
             }
             else if (tip == '"') {
