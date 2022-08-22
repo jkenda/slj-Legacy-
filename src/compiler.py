@@ -124,9 +124,11 @@ def zaporedje(izraz: str) -> Zaporedje:
 
 	return Zaporedje(*izrazi)
 
-def stavek(izraz: str) -> Prirejanje:
+def stavek(izraz: str) -> Vozlišče:
 	operator: Izraz = None
 	razdeljen = ""
+
+	#print(izraz, "\n")
 
 	operatorji = list(PRIREJALNI.keys())
 	lokacije = [ poišči_zadaj(izraz, op) for op in operatorji ]
@@ -247,8 +249,6 @@ def funkcija(izraz: str):
 
 	spr_funkcije["0_OF"] = Spremenljivka("0_OF", vrh_stacka(), True)
 
-	spr_len = len(spr_funkcije)
-
 	fun = Funkcija(ime_funkcije, args, Število(0), 0)
 	funkcije_stack[-1][ime_funkcije] = fun
 	funkcije[ime_funkcije] = fun
@@ -261,15 +261,11 @@ def funkcija(izraz: str):
 	znotraj_funkcije = True
 	telo = zaporedje(izraz[oklepaj+1:zaklepaj])
 	znotraj_funkcije = False
-
-	for spr in spremenljivke.values(): print(str(spr), end=", ")
-	print()
-
 	spremenljivke_stack.pop()
 	spremenljivke = prejšnje_spr
 
 	fun.telo = telo
-	fun.prostor = len(spr_funkcije) - spr_len
+	fun.prostor = len(spr_funkcije) - len(args) - 3
 
 	return fun
 
@@ -494,7 +490,9 @@ def postprocesiran(ukazi: str) -> str:
 def poišči_spredaj(izraz: str, niz: str) -> int:
 	navadnih_oklepajev = 0
 	zavitih_oklepajev = 0
+	oglatih_oklepajev = 0
 	znotraj_navedic = False
+	znotraj_komentarja = False
 
 	i = 0
 	while i < len(izraz):
@@ -503,27 +501,37 @@ def poišči_spredaj(izraz: str, niz: str) -> int:
 			navadnih_oklepajev -= 1
 		elif izraz[i] == '}':
 			zavitih_oklepajev -= 1
+		elif izraz[i] == ']':
+			oglatih_oklepajev -= 1
 		elif izraz[i] == '"':
 			znotraj_navedic = not znotraj_navedic
 
 		# iskani niz ni znotraj oklepajev ali navednic
 		if (
-			navadnih_oklepajev == 0 and zavitih_oklepajev == 0 
-			and not znotraj_navedic and izraz[i:].startswith(niz)
+			navadnih_oklepajev == 0 and zavitih_oklepajev == 0 and oglatih_oklepajev == 0
+			and not znotraj_navedic
+			and izraz[i:].startswith(niz)
 		):
 			if i in [0, len(izraz)-1]:
 				return i
 			cl = izraz[i-1]; cr = izraz[i+len(niz)]
 			if (
-				(cl.isspace() or cl.isalnum() or cl in ['(', ')', '"', '}']) and
-				(cr.isspace() or cr.isalnum() or cr in ['(', ')', '"', '}'])
+				znotraj_komentarja and niz == '\n' or
+				(cl.isspace() or cl.isalnum() or cl in ['(', ')', '"', '}', '[', ']']) and
+				(cr.isspace() or cr.isalnum() or cr in ['(', ')', '"', '}', '[', ']'])
 			):
 				return i
 
-		if izraz[i] == '(':
+		if znotraj_komentarja and izraz[i] == '\n':
+				znotraj_komentarja = False
+		elif izraz[i] == '(':
 			navadnih_oklepajev += 1
 		elif izraz[i] == '{':
 			zavitih_oklepajev += 1
+		elif izraz[i] == '[':
+			oglatih_oklepajev += 1
+		elif izraz[i] == '#':
+			znotraj_komentarja = True
 
 		i += 1
 
@@ -535,6 +543,7 @@ def poišči_spredaj(izraz: str, niz: str) -> int:
 def poišči_zadaj(izraz: str, niz: str) -> int:
 	navadnih_oklepajev = 0
 	zavitih_oklepajev = 0
+	oglatih_oklepajev = 0
 	znotraj_navedic = False
 
 	i = len(izraz) - 1
@@ -543,20 +552,22 @@ def poišči_zadaj(izraz: str, niz: str) -> int:
 			navadnih_oklepajev -= 1
 		elif izraz[i] == '{':
 			zavitih_oklepajev -= 1
+		elif izraz[i] == '[':
+			oglatih_oklepajev -= 1
 		elif izraz[i] == '"':
 			znotraj_navedic = not znotraj_navedic
 
 		# iskani niz ni znotraj oklepajev ali navednic
 		if (
-			navadnih_oklepajev == 0 and zavitih_oklepajev == 0 
+			navadnih_oklepajev == 0 and zavitih_oklepajev == 0 and oglatih_oklepajev == 0
 			and not znotraj_navedic and izraz[i:].startswith(niz)
 		):
 			if i in [0, len(izraz)-1]:
 				return i
 			cl = izraz[i-1]; cr = izraz[i+len(niz)]
 			if (
-				(cl.isspace() or cl.isalnum() or cl in ['(', ')', '"', '}']) and
-				(cr.isspace() or cr.isalnum() or cr in ['(', ')', '"', '}'])
+				(cl.isspace() or cl.isalnum() or cl in ['(', ')', '"', '}', '[', ']']) and
+				(cr.isspace() or cr.isalnum() or cr in ['(', ')', '"', '}', '[', ']'])
 			):
 				return i
 
@@ -564,6 +575,8 @@ def poišči_zadaj(izraz: str, niz: str) -> int:
 			navadnih_oklepajev += 1
 		elif izraz[i] == '}':
 			zavitih_oklepajev += 1
+		elif izraz[i] == ']':
+			oglatih_oklepajev += 1
 
 		i -= 1
 

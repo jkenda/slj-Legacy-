@@ -1285,27 +1285,22 @@ class Funkcija(Vozlišče):
                 - len(self.argumenti) 
                 - ProgramskiŠtevec().sprememba_stacka() 
                 - Število(0).sprememba_stacka()
-            ) # nastavi odmik trenutne funkcije
-        )
-
-        telo = Zaporedje(
-            Okvir(
-                self.telo,
-                self.prostor
-            )
+            ), # nastavi odmik trenutne funkcije
+            *([Število(0)] * self.prostor),
         )
 
         za = Zaporedje(
+            Pop(self.prostor),
             ShraniOdmik(),            # nastavi odmik prejšnje funkcije
             Pop(len(self.argumenti)), # počisti argumente funkcije
             DinamičniSkok()           # vrni se iz funkcije
         )
 
         return (
-            Skok(1 + len(pred) + len(telo) + len(za)).prevedi() + # preskoči funkcijo
+            Skok(1 + len(pred) + len(self.telo) + len(za)).prevedi() + # preskoči funkcijo
             f".{self.ime}\n" + # oznaka funkcije
             pred.prevedi() +
-            telo.prevedi() +
+            self.telo.prevedi() +
             f".0konec_{self.ime}\n" +
             za.prevedi()
         )

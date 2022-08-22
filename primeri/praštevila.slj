@@ -18,7 +18,6 @@ funkcija je_praštevilo(kandidat) {
 
 MEJA = 100_000
 praštevil = 2 # [2, 3]
-
 kandidat = 5
 
 dokler kandidat <= MEJA {
